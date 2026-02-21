@@ -31,7 +31,7 @@ export function PlanOverview(): React.JSX.Element {
       <section className="panel">
         <h2 className="h2">Training Plan Overview</h2>
         <p className="muted mt-1">
-          {plan.durationWeeks} weeks â€¢ Goal: {goal?.goalDistance ?? "N/A"} â€¢ Long run: {goal?.longRunDay ?? "N/A"}
+          {plan.durationWeeks} weeks | Goal: {goal?.goalDistance ?? "N/A"} | Long run: {goal?.longRunDay ?? "N/A"}
         </p>
         <p className="mt-3 text-sm text-slate-700">{plan.summary}</p>
       </section>
@@ -53,9 +53,7 @@ export function PlanOverview(): React.JSX.Element {
                       <p className="font-medium">
                         {workout.day}: {workout.title}
                       </p>
-                      <p className="text-slate-600">
-                        {workout.distanceKm} km â€¢ {workout.paceTarget}
-                      </p>
+                      <p className="text-slate-600">{workout.distanceKm} km | {workout.paceTarget}</p>
                     </div>
                     <Link
                       href={`/plan/${weekIdx}/${workoutIdx}`}

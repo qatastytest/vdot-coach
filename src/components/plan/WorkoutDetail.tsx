@@ -44,13 +44,13 @@ export function WorkoutDetail({ weekIndex, workoutIndex }: WorkoutDetailProps): 
     <div className="space-y-5">
       <section className="panel">
         <p className="text-sm text-slate-600">
-          Week {week.weekNumber} â€¢ {week.phase}
+          Week {week.weekNumber} | {week.phase}
         </p>
         <h2 className="h2 mt-1">
           {workout.day}: {workout.title}
         </h2>
         <p className="mt-2 text-sm text-slate-700">
-          {workout.distanceKm} km â€¢ Pace target {workout.paceTarget} â€¢ HR fallback {workout.hrFallback}
+          {workout.distanceKm} km | Pace target {workout.paceTarget} | HR fallback {workout.hrFallback}
         </p>
       </section>
 
