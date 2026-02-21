@@ -87,3 +87,18 @@ export interface SyncedActivity {
   maxHr?: number;
   elevationGainM?: number;
 }
+
+export interface StravaOAuthToken {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  athleteId?: number;
+  athleteUsername?: string;
+}
+
+export interface StravaConnection {
+  clientId: string;
+  clientSecret: string;
+  token?: StravaOAuthToken;
+  updatedAt: string;
+}

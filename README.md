@@ -43,6 +43,19 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 - In GitHub repo settings, ensure:
   - `Settings -> Pages -> Build and deployment -> Source = GitHub Actions`
 
+## Strava Sync on GitHub Pages
+
+- `Performance` page now supports both:
+  - Strava file import (`CSV` or `JSON`)
+  - Direct Strava OAuth + API sync (`Connect Strava` + `Sync now`)
+- In static GitHub Pages mode, Strava credentials/token are stored per profile in browser localStorage.
+- This is convenient for personal use, but insecure for shared/public devices.
+- Recommended minimum safeguards:
+  - Never commit `client_secret` or tokens in git history
+  - Revoke/rotate token immediately if leaked
+  - Use this mode only for private personal usage
+- If browser blocks OAuth/token exchange due CORS/policy, keep using file import until backend proxy (Supabase) is added.
+
 ## Routes
 
 - `/` Profile login/select screen
@@ -146,7 +159,7 @@ Test coverage includes:
 
 - No authentication/multi-user support
 - No backend API persistence wired yet (schema present, UI uses local storage)
-- No import from wearables or external platforms
+- Direct Strava OAuth in static hosting has security and CORS constraints
 - No adaptive day-by-day feedback loop yet
 
 ## Suggested V2

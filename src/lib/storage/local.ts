@@ -1,4 +1,4 @@
-import { BaselineSnapshot, RaceGoal, RunnerProfile, SyncedActivity } from "@/lib/domain/models";
+import { BaselineSnapshot, RaceGoal, RunnerProfile, StravaConnection, SyncedActivity } from "@/lib/domain/models";
 import { PlannedWorkout, TrainingPlanOutput, WorkoutStatus } from "@/lib/plan";
 
 const LEGACY_KEYS = {
@@ -49,6 +49,7 @@ interface StoredProfileRecord {
   baseline: BaselineSnapshot | null;
   goal: RaceGoal | null;
   plan: TrainingPlanOutput | null;
+  strava: StravaConnection | null;
   activities: SyncedActivity[];
   lastActivitySyncAt?: string;
 }
@@ -147,6 +148,37 @@ function normalizeActivities(raw: unknown): SyncedActivity[] {
   return normalized;
 }
 
+function normalizeStravaConnection(raw: unknown): StravaConnection | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Partial<StravaConnection>;
+  const clientId = String(value.clientId ?? "").trim();
+  const clientSecret = String(value.clientSecret ?? "").trim();
+  if (!clientId || !clientSecret) return null;
+
+  const maybeToken = value.token;
+  const token =
+    maybeToken &&
+    typeof maybeToken === "object" &&
+    typeof maybeToken.accessToken === "string" &&
+    typeof maybeToken.refreshToken === "string" &&
+    Number.isFinite(Number(maybeToken.expiresAt))
+      ? {
+          accessToken: maybeToken.accessToken,
+          refreshToken: maybeToken.refreshToken,
+          expiresAt: Number(maybeToken.expiresAt),
+          athleteId: maybeToken.athleteId !== undefined ? Number(maybeToken.athleteId) : undefined,
+          athleteUsername: maybeToken.athleteUsername
+        }
+      : undefined;
+
+  return {
+    clientId,
+    clientSecret,
+    token,
+    updatedAt: value.updatedAt && String(value.updatedAt).trim().length > 0 ? String(value.updatedAt) : nowIso()
+  };
+}
+
 function activityKey(activity: SyncedActivity): string {
   return `${activity.source}:${activity.externalId}`;
 }
@@ -185,6 +217,7 @@ function normalizeProfileRecord(raw: Partial<StoredProfileRecord>, index: number
     baseline: raw.baseline ?? null,
     goal: raw.goal ?? null,
     plan: normalizePlan(raw.plan ?? null),
+    strava: normalizeStravaConnection(raw.strava),
     activities: normalizeActivities(raw.activities),
     lastActivitySyncAt: raw.lastActivitySyncAt
   };
@@ -240,6 +273,7 @@ function migrateFromLegacyIfNeeded(): ProfilesState {
         baseline: legacyBaseline,
         goal: legacyGoal,
         plan: normalizePlan(legacyPlan),
+        strava: null,
         activities: [],
         lastActivitySyncAt: undefined
       }
@@ -325,6 +359,7 @@ export function createStoredProfile(name: string): StoredProfileSummary {
     baseline: null,
     goal: null,
     plan: null,
+    strava: null,
     activities: [],
     lastActivitySyncAt: undefined
   };
@@ -461,6 +496,32 @@ export function setStoredPlan(plan: TrainingPlanOutput): boolean {
   return updateActiveRecord((record) => ({
     ...record,
     plan: normalizePlan(plan),
+    updatedAt: nowIso()
+  }));
+}
+
+export function getStoredStravaConnection(): StravaConnection | null {
+  return getActiveRecord(readState())?.strava ?? null;
+}
+
+export function setStoredStravaConnection(connection: Omit<StravaConnection, "updatedAt">): boolean {
+  const normalized = normalizeStravaConnection({
+    ...connection,
+    updatedAt: nowIso()
+  });
+  if (!normalized) return false;
+
+  return updateActiveRecord((record) => ({
+    ...record,
+    strava: normalized,
+    updatedAt: nowIso()
+  }));
+}
+
+export function clearStoredStravaConnection(): boolean {
+  return updateActiveRecord((record) => ({
+    ...record,
+    strava: null,
     updatedAt: nowIso()
   }));
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildStravaAuthorizeUrl,
   buildActivityInsights,
   deriveBaselineFromActivities,
   parseStravaImportFile
@@ -50,5 +51,19 @@ describe("Strava integration helpers", () => {
     const baseline = deriveBaselineFromActivities(parsed.activities);
     expect(baseline).not.toBeNull();
     expect((baseline?.vdot ?? 0) > 40).toBe(true);
+  });
+
+  it("builds an authorize URL with required oauth parameters", () => {
+    const url = buildStravaAuthorizeUrl({
+      clientId: "12345",
+      redirectUri: "https://qatastytest.github.io/vdot-coach/performance/",
+      state: "abc-state"
+    });
+
+    expect(url).toContain("https://www.strava.com/oauth/authorize?");
+    expect(url).toContain("client_id=12345");
+    expect(url).toContain("response_type=code");
+    expect(url).toContain("state=abc-state");
+    expect(url).toContain("activity%3Aread_all");
   });
 });

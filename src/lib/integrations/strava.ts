@@ -25,11 +25,32 @@ export interface ActivityInsights {
   halfPbSec?: number;
 }
 
+export interface StravaAuthTokenResponse {
+  token_type: string;
+  expires_at: number;
+  expires_in: number;
+  refresh_token: string;
+  access_token: string;
+  athlete?: {
+    id?: number;
+    username?: string;
+  };
+}
+
+interface StravaTokenApiError {
+  message?: string;
+  errors?: Array<{ resource?: string; field?: string; code?: string }>;
+}
+
 const PB_TARGETS = [
   { key: "fiveKPbSec", meters: 5000 },
   { key: "tenKPbSec", meters: 10000 },
   { key: "halfPbSec", meters: 21097.5 }
 ] as const;
+
+const STRAVA_AUTHORIZE_URL = "https://www.strava.com/oauth/authorize";
+const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
+const STRAVA_API_BASE_URL = "https://www.strava.com/api/v3";
 
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -112,6 +133,19 @@ function parseDistanceMeters(raw: string): number | null {
   if (value.includes(" m")) return numeric;
   if (numeric <= 80) return numeric * 1000;
   return numeric;
+}
+
+function parseTokenError(body: unknown): string {
+  if (!body || typeof body !== "object") {
+    return "Unknown Strava API error.";
+  }
+  const parsed = body as StravaTokenApiError;
+  if (parsed.message) return parsed.message;
+  if (Array.isArray(parsed.errors) && parsed.errors.length > 0) {
+    const first = parsed.errors[0];
+    return `${first.resource ?? "resource"}:${first.field ?? "field"}:${first.code ?? "error"}`;
+  }
+  return "Unknown Strava API error.";
 }
 
 function isRunLike(activity: SyncedActivity): boolean {
@@ -275,6 +309,161 @@ export function parseStravaImportFile(content: string): StravaImportResult {
     ),
     warnings
   };
+}
+
+export function buildStravaAuthorizeUrl(params: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+}): string {
+  const search = new URLSearchParams({
+    client_id: params.clientId,
+    response_type: "code",
+    approval_prompt: "auto",
+    redirect_uri: params.redirectUri,
+    scope: "read,activity:read_all,profile:read_all",
+    state: params.state
+  });
+  return `${STRAVA_AUTHORIZE_URL}?${search.toString()}`;
+}
+
+async function postTokenRequest(body: URLSearchParams): Promise<StravaAuthTokenResponse> {
+  const response = await fetch(STRAVA_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: body.toString()
+  });
+
+  const payload = (await response.json().catch(() => null)) as StravaAuthTokenResponse | StravaTokenApiError | null;
+  if (!response.ok || !payload) {
+    throw new Error(parseTokenError(payload));
+  }
+
+  if (
+    typeof (payload as StravaAuthTokenResponse).access_token !== "string" ||
+    typeof (payload as StravaAuthTokenResponse).refresh_token !== "string"
+  ) {
+    throw new Error("Invalid token payload from Strava.");
+  }
+  return payload as StravaAuthTokenResponse;
+}
+
+export async function exchangeStravaCodeForToken(params: {
+  clientId: string;
+  clientSecret: string;
+  code: string;
+}): Promise<StravaAuthTokenResponse> {
+  const body = new URLSearchParams({
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+    code: params.code,
+    grant_type: "authorization_code"
+  });
+  return postTokenRequest(body);
+}
+
+export async function refreshStravaToken(params: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}): Promise<StravaAuthTokenResponse> {
+  const body = new URLSearchParams({
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: params.refreshToken
+  });
+  return postTokenRequest(body);
+}
+
+interface RawStravaActivity {
+  id?: number | string;
+  name?: string;
+  type?: string;
+  sport_type?: string;
+  start_date?: string;
+  start_date_local?: string;
+  distance?: number;
+  moving_time?: number;
+  elapsed_time?: number;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  total_elevation_gain?: number;
+}
+
+function mapStravaApiActivity(raw: RawStravaActivity): SyncedActivity | null {
+  const startDateTime = String(raw.start_date_local ?? raw.start_date ?? "").trim();
+  const startDate = toIsoDate(startDateTime) ?? "";
+  return normalizeIncomingActivity({
+    externalId: String(raw.id ?? `${startDate}-${raw.name ?? "run"}-${raw.moving_time ?? 0}`),
+    name: String(raw.name ?? "Run"),
+    type: String(raw.sport_type ?? raw.type ?? "Run"),
+    startDate,
+    startDateTime: startDateTime || undefined,
+    distanceMeters: Number(raw.distance ?? 0),
+    movingTimeSec: Number(raw.moving_time ?? 0),
+    elapsedTimeSec: raw.elapsed_time !== undefined ? Number(raw.elapsed_time) : undefined,
+    averageHr: raw.average_heartrate !== undefined ? Number(raw.average_heartrate) : undefined,
+    maxHr: raw.max_heartrate !== undefined ? Number(raw.max_heartrate) : undefined,
+    elevationGainM: raw.total_elevation_gain !== undefined ? Number(raw.total_elevation_gain) : undefined
+  });
+}
+
+export async function fetchStravaActivities(params: {
+  accessToken: string;
+  afterEpochSec?: number;
+  perPage?: number;
+  maxPages?: number;
+}): Promise<SyncedActivity[]> {
+  const perPage = params.perPage ?? 200;
+  const maxPages = params.maxPages ?? 25;
+  const items: SyncedActivity[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const query = new URLSearchParams({
+      page: String(page),
+      per_page: String(perPage)
+    });
+    if (params.afterEpochSec) {
+      query.set("after", String(params.afterEpochSec));
+    }
+
+    const response = await fetch(`${STRAVA_API_BASE_URL}/athlete/activities?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`
+      }
+    });
+
+    const payload = (await response.json().catch(() => null)) as RawStravaActivity[] | StravaTokenApiError | null;
+    if (!response.ok || !payload) {
+      throw new Error(parseTokenError(payload));
+    }
+    if (!Array.isArray(payload)) {
+      throw new Error("Unexpected activities payload from Strava.");
+    }
+    if (payload.length === 0) {
+      break;
+    }
+
+    for (const raw of payload) {
+      const parsed = mapStravaApiActivity(raw);
+      if (parsed) items.push(parsed);
+    }
+
+    if (payload.length < perPage) {
+      break;
+    }
+  }
+
+  const byId = new Map<string, SyncedActivity>();
+  for (const item of items) {
+    byId.set(item.externalId, item);
+  }
+  return [...byId.values()].sort((a, b) =>
+    `${a.startDateTime ?? a.startDate}`.localeCompare(`${b.startDateTime ?? b.startDate}`)
+  );
 }
 
 function sumDistanceKm(activities: SyncedActivity[]): number {
