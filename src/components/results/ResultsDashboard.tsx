@@ -38,9 +38,14 @@ export function ResultsDashboard(): React.JSX.Element {
   if (!baseline) {
     return (
       <Panel title="No Baseline Yet" subtitle="Add a race or test performance first.">
-        <Link href="/performance" className="btn-primary">
-          Add performance
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/performance" className="btn-primary">
+            Add performance
+          </Link>
+          <Link href="/" className="btn-secondary">
+            Select profile
+          </Link>
+        </div>
       </Panel>
     );
   }

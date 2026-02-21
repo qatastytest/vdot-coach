@@ -52,6 +52,17 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 - `/plan/[week]/[workout]` Workout detail
 - `/settings` Runner profile
 
+## Local Profile Selector (Netflix-style MVP)
+
+- Landing page now supports profile selection per device/browser.
+- Each profile stores its own:
+  - runner settings
+  - baseline performance/VDOT snapshot
+  - race goal
+  - generated plan
+- Existing legacy single-profile localStorage data is auto-migrated into `My Profile`.
+- This is still local browser persistence (no cloud sync/account auth yet).
+
 ## Scientific Formulas (Implemented)
 
 Definitions:

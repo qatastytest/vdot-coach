@@ -44,7 +44,7 @@ export function HrSetupForm(): React.JSX.Element {
     const current = getStoredProfile();
 
     if (!current) {
-      setError("Create your runner profile first in Settings.");
+      setError("Select a profile and create runner settings first.");
       return;
     }
 
@@ -57,12 +57,17 @@ export function HrSetupForm(): React.JSX.Element {
       return;
     }
 
-    setStoredProfile({
+    const savedProfile = setStoredProfile({
       ...current,
       maxHr: parsedMax,
       restingHr: parsedRest,
       lthr: parsedLthr
     });
+    if (!savedProfile) {
+      setError("Select a profile from Home before saving HR setup.");
+      return;
+    }
+
     setSaved(true);
   }
 

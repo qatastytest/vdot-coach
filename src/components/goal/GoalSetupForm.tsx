@@ -65,8 +65,13 @@ export function GoalSetupForm(): React.JSX.Element {
     const baseline = getStoredBaseline();
     const plan = generateTrainingPlan({ profile, goal, paces: baseline?.paces });
 
-    setStoredGoal(goal);
-    setStoredPlan(plan);
+    const goalSaved = setStoredGoal(goal);
+    const planSaved = setStoredPlan(plan);
+    if (!goalSaved || !planSaved) {
+      setErrors(["Select a profile from Home before generating a plan."]);
+      return;
+    }
+
     setErrors([]);
     setMessage("Plan generated.");
     router.push("/plan");

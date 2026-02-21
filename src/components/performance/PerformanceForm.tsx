@@ -84,7 +84,12 @@ export function PerformanceForm(): React.JSX.Element {
       coachingNotes
     };
 
-    setStoredBaseline(baseline);
+    const saved = setStoredBaseline(baseline);
+    if (!saved) {
+      setErrors(["Select a profile from Home before saving results."]);
+      return;
+    }
+
     router.push("/results");
   }
 

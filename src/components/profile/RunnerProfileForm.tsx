@@ -64,7 +64,12 @@ export function RunnerProfileForm(): React.JSX.Element {
       preferredUnits: parsed.data.preferredUnits
     };
 
-    setStoredProfile(normalized);
+    const savedOk = setStoredProfile(normalized);
+    if (!savedOk) {
+      setErrors(["Select a profile from Home before saving settings."]);
+      return;
+    }
+
     setErrors([]);
     setSaved(true);
   }

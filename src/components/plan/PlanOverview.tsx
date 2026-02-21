@@ -19,9 +19,14 @@ export function PlanOverview(): React.JSX.Element {
       <div className="panel">
         <h2 className="h2">No Plan Yet</h2>
         <p className="muted mt-2">Set your goal and generate a plan first.</p>
-        <Link href="/goal" className="btn-primary mt-4">
-          Go to Goal Setup
-        </Link>
+        <div className="mt-4 flex gap-2">
+          <Link href="/goal" className="btn-primary">
+            Go to Goal Setup
+          </Link>
+          <Link href="/" className="btn-secondary">
+            Select Profile
+          </Link>
+        </div>
       </div>
     );
   }
