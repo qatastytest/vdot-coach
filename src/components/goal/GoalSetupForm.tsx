@@ -16,7 +16,7 @@ const DEFAULT_GOAL: RaceGoalFormValues = {
   daysPerWeek: 4,
   longRunDay: "Sunday",
   trackAccess: true,
-  planLengthWeeks: 8
+  planLengthWeeks: 12
 };
 
 export function GoalSetupForm(): React.JSX.Element {
@@ -166,10 +166,14 @@ export function GoalSetupForm(): React.JSX.Element {
         <select
           className="input"
           value={form.planLengthWeeks}
-          onChange={(event) => setForm((prev) => ({ ...prev, planLengthWeeks: Number(event.target.value) as 4 | 8 }))}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, planLengthWeeks: Number(event.target.value) as 4 | 8 | 12 | 16 }))
+          }
         >
           <option value={4}>4 weeks</option>
           <option value={8}>8 weeks</option>
+          <option value={12}>12 weeks</option>
+          <option value={16}>16 weeks</option>
         </select>
       </label>
 

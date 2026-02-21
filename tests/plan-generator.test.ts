@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveTrainingPaces } from "@/lib/core";
 import { RaceGoal, RunnerProfile } from "@/lib/domain/models";
-import { generateTrainingPlan } from "@/lib/plan";
+import { generateTrainingPlan, refreshTrainingPlanFromFeedback } from "@/lib/plan";
 
 const profile: RunnerProfile = {
   weeklyKmCurrent: 48,
@@ -61,5 +61,38 @@ describe("Rule-based plan generator", () => {
     expect(firstWeek.workouts.filter((workout) => workout.isKey)).toHaveLength(1);
     expect(firstWeek.workouts.filter((workout) => workout.type === "long_run")).toHaveLength(1);
     expect(firstWeek.workouts.filter((workout) => workout.type === "easy")).toHaveLength(1);
+  });
+
+  it("supports 12 and 16 week schedules", () => {
+    const longGoal12: RaceGoal = { ...goal, planLengthWeeks: 12 };
+    const longGoal16: RaceGoal = { ...goal, planLengthWeeks: 16 };
+
+    const plan12 = generateTrainingPlan({ profile, goal: longGoal12 });
+    const plan16 = generateTrainingPlan({ profile, goal: longGoal16 });
+
+    expect(plan12.weeks).toHaveLength(12);
+    expect(plan16.weeks).toHaveLength(16);
+    expect(plan12.weeks[11].phase).toBe("taper");
+    expect(plan16.weeks[15].phase).toBe("taper");
+  });
+
+  it("refreshes plan with feedback and increments replan count", () => {
+    const original = generateTrainingPlan({ profile, goal });
+    original.weeks[0].workouts[0].status = "skipped";
+    original.weeks[0].workouts[1].status = "skipped";
+    original.weeks[0].workouts[2].status = "done";
+    original.weeks[0].workouts[1].isEdited = true;
+
+    const refreshed = refreshTrainingPlanFromFeedback({
+      existingPlan: original,
+      profile,
+      goal,
+      paces: deriveTrainingPaces(50)
+    });
+
+    expect(refreshed.replanCount).toBe(1);
+    expect(refreshed.refreshContext?.skipped).toBe(2);
+    expect(refreshed.refreshContext?.done).toBe(1);
+    expect(refreshed.weeks[0].workouts.every((workout) => workout.status === "planned")).toBe(true);
   });
 });

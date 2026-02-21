@@ -2,7 +2,14 @@ import { formatPace } from "@/lib/core/time";
 import { TrainingPaces } from "@/lib/core/types";
 import { RaceGoal, RunnerProfile } from "@/lib/domain/models";
 import { fatigueAdjustment, missedWorkoutGuidance } from "@/lib/plan/rules";
-import { PlannedWorkout, PlanPhase, TrainingPlanOutput, TrainingWeekPlan, WorkoutType } from "@/lib/plan/types";
+import {
+  PlannedWorkout,
+  PlanDurationWeeks,
+  PlanPhase,
+  TrainingPlanOutput,
+  TrainingWeekPlan,
+  WorkoutType
+} from "@/lib/plan/types";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -10,6 +17,16 @@ interface BuildPlanInput {
   profile: RunnerProfile;
   goal: RaceGoal;
   paces?: TrainingPaces;
+  loadAdjustmentFactor?: number;
+  replanCount?: number;
+  refreshContext?: TrainingPlanOutput["refreshContext"];
+}
+
+interface PlanFeedbackSummary {
+  done: number;
+  skipped: number;
+  edited: number;
+  skipRate: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -20,21 +37,70 @@ function roundTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function getPhaseSchedule(durationWeeks: 4 | 8): PlanPhase[] {
+function createPlanId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `plan-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+}
+
+function getPhaseSchedule(durationWeeks: PlanDurationWeeks): PlanPhase[] {
   if (durationWeeks === 4) {
     return ["base", "build", "specific", "taper"];
   }
-  return ["base", "base", "build", "build", "specific", "deload", "specific", "taper"];
+
+  if (durationWeeks === 8) {
+    return ["base", "base", "build", "build", "specific", "deload", "specific", "taper"];
+  }
+
+  if (durationWeeks === 12) {
+    return [
+      "base",
+      "base",
+      "build",
+      "build",
+      "specific",
+      "deload",
+      "build",
+      "specific",
+      "specific",
+      "deload",
+      "specific",
+      "taper"
+    ];
+  }
+
+  return [
+    "base",
+    "base",
+    "base",
+    "build",
+    "build",
+    "build",
+    "specific",
+    "deload",
+    "build",
+    "specific",
+    "specific",
+    "deload",
+    "specific",
+    "specific",
+    "specific",
+    "taper"
+  ];
 }
 
 function buildVolumeTargets(
-  durationWeeks: 4 | 8,
+  durationWeeks: PlanDurationWeeks,
   currentKm: number,
   maxKm: number,
-  phases: PlanPhase[]
+  phases: PlanPhase[],
+  loadAdjustmentFactor: number
 ): number[] {
   const targets: number[] = [];
-  const weekOne = clamp(currentKm * 0.95, currentKm * 0.9, Math.min(currentKm, maxKm));
+  const adjustedCurrent = currentKm * loadAdjustmentFactor;
+  const weekOneLower = currentKm * (loadAdjustmentFactor < 1 ? 0.75 : 0.9);
+  const weekOne = clamp(adjustedCurrent * 0.95, weekOneLower, Math.min(adjustedCurrent, maxKm));
   targets.push(roundTenth(weekOne));
 
   for (let i = 1; i < durationWeeks; i += 1) {
@@ -45,7 +111,7 @@ function buildVolumeTargets(
     if (phase === "deload") {
       next = previous * 0.8;
     } else if (phase === "taper") {
-      next = previous * (durationWeeks === 4 ? 0.82 : 0.78);
+      next = previous * (durationWeeks === 4 ? 0.82 : durationWeeks === 8 ? 0.78 : 0.86);
     } else if (phase === "base") {
       next = previous * 1.05;
     } else if (phase === "build") {
@@ -153,7 +219,7 @@ function workoutTemplateByPhase(
   phase: PlanPhase,
   whichKey: 1 | 2,
   goalDistance: RaceGoal["goalDistance"]
-): Omit<PlannedWorkout, "id" | "day" | "distanceKm" | "paceTarget" | "hrFallback"> {
+): Omit<PlannedWorkout, "id" | "day" | "distanceKm" | "paceTarget" | "hrFallback" | "status"> {
   if (phase === "taper") {
     return {
       type: whichKey === 1 ? "threshold" : "interval",
@@ -262,7 +328,10 @@ function workoutTemplateByPhase(
   };
 }
 
-function easyWorkout(): Omit<PlannedWorkout, "id" | "paceTarget" | "hrFallback" | "distanceKm" | "day"> {
+function easyWorkout(): Omit<
+  PlannedWorkout,
+  "id" | "paceTarget" | "hrFallback" | "distanceKm" | "day" | "status"
+> {
   return {
     type: "easy",
     isKey: false,
@@ -282,7 +351,7 @@ function easyWorkout(): Omit<PlannedWorkout, "id" | "paceTarget" | "hrFallback" 
 
 function longRunWorkout(
   phase: PlanPhase
-): Omit<PlannedWorkout, "id" | "day" | "paceTarget" | "hrFallback" | "distanceKm"> {
+): Omit<PlannedWorkout, "id" | "day" | "paceTarget" | "hrFallback" | "distanceKm" | "status"> {
   return {
     type: "long_run",
     isKey: false,
@@ -306,7 +375,7 @@ function longRunWorkout(
 function makeWorkout(
   weekNumber: number,
   day: string,
-  template: Omit<PlannedWorkout, "id" | "day" | "distanceKm" | "paceTarget" | "hrFallback">,
+  template: Omit<PlannedWorkout, "id" | "day" | "distanceKm" | "paceTarget" | "hrFallback" | "status">,
   distanceKm: number,
   paces: TrainingPaces | undefined,
   profile: RunnerProfile
@@ -325,21 +394,58 @@ function makeWorkout(
     rpe: template.rpe,
     purpose: template.purpose,
     alternatives: template.alternatives,
-    distanceKm: roundTenth(Math.max(4, distanceKm))
+    distanceKm: roundTenth(Math.max(4, distanceKm)),
+    status: "planned"
   };
 }
 
 function sortWorkoutsByDay(workouts: PlannedWorkout[]): PlannedWorkout[] {
-  return workouts.sort((a, b) => DAYS.indexOf(a.day as (typeof DAYS)[number]) - DAYS.indexOf(b.day as (typeof DAYS)[number]));
+  return workouts.sort(
+    (a, b) =>
+      DAYS.indexOf(a.day as (typeof DAYS)[number]) - DAYS.indexOf(b.day as (typeof DAYS)[number])
+  );
 }
 
-export function generateTrainingPlan({ profile, goal, paces }: BuildPlanInput): TrainingPlanOutput {
+function countWorkoutFeedback(plan: TrainingPlanOutput): PlanFeedbackSummary {
+  let done = 0;
+  let skipped = 0;
+  let edited = 0;
+
+  for (const week of plan.weeks) {
+    for (const workout of week.workouts) {
+      if (workout.status === "done") done += 1;
+      if (workout.status === "skipped") skipped += 1;
+      if (workout.isEdited) edited += 1;
+    }
+  }
+
+  const tracked = done + skipped;
+  const skipRate = tracked === 0 ? 0 : skipped / tracked;
+  return { done, skipped, edited, skipRate };
+}
+
+function calculateLoadAdjustmentFromFeedback(feedback: PlanFeedbackSummary): number {
+  if (feedback.skipRate >= 0.4 || feedback.skipped >= 4) return 0.82;
+  if (feedback.skipRate >= 0.25 || feedback.skipped >= 2) return 0.9;
+  if (feedback.done >= 8 && feedback.skipRate <= 0.1) return 1.03;
+  return 1;
+}
+
+export function generateTrainingPlan({
+  profile,
+  goal,
+  paces,
+  loadAdjustmentFactor = 1,
+  replanCount = 0,
+  refreshContext
+}: BuildPlanInput): TrainingPlanOutput {
   const phases = getPhaseSchedule(goal.planLengthWeeks);
   const volumes = buildVolumeTargets(
     goal.planLengthWeeks,
     profile.weeklyKmCurrent,
     profile.weeklyKmMaxTolerated,
-    phases
+    phases,
+    loadAdjustmentFactor
   );
 
   const runDayIndices = resolveRunDayIndices(goal.daysPerWeek, goal.longRunDay);
@@ -360,39 +466,24 @@ export function generateTrainingPlan({ profile, goal, paces }: BuildPlanInput): 
       const day = DAYS[dayIdx];
 
       if (dayIdx === longIdx) {
-        workouts.push(
-          makeWorkout(weekNumber, day, longRunWorkout(phase), volumePieces.long, paces, profile)
-        );
+        workouts.push(makeWorkout(weekNumber, day, longRunWorkout(phase), volumePieces.long, paces, profile));
         continue;
       }
 
       if (dayIdx === key1Idx) {
         const keyOne = workoutTemplateByPhase(phase, 1, goal.goalDistance);
-        workouts.push(
-          makeWorkout(weekNumber, day, keyOne, volumePieces.key1, paces, profile)
-        );
+        workouts.push(makeWorkout(weekNumber, day, keyOne, volumePieces.key1, paces, profile));
         continue;
       }
 
       if (secondKeyAllowed && dayIdx === key2Idx) {
         const keyTwo = workoutTemplateByPhase(phase, 2, goal.goalDistance);
-        workouts.push(
-          makeWorkout(weekNumber, day, keyTwo, volumePieces.key2, paces, profile)
-        );
+        workouts.push(makeWorkout(weekNumber, day, keyTwo, volumePieces.key2, paces, profile));
         continue;
       }
 
       const easy = easyWorkout();
-      workouts.push(
-        makeWorkout(
-          weekNumber,
-          day,
-          easy,
-          volumePieces.easy[easyCounter] ?? 0,
-          paces,
-          profile
-        )
-      );
+      workouts.push(makeWorkout(weekNumber, day, easy, volumePieces.easy[easyCounter] ?? 0, paces, profile));
       easyCounter += 1;
     }
 
@@ -414,10 +505,32 @@ export function generateTrainingPlan({ profile, goal, paces }: BuildPlanInput): 
   });
 
   return {
+    id: createPlanId(),
     durationWeeks: goal.planLengthWeeks,
     generatedAt: new Date().toISOString(),
     summary:
       "Rule-based conservative plan with capped weekly growth, max two key sessions, and fallback options for track access, fatigue, and missed sessions.",
+    replanCount,
+    refreshContext,
     weeks
   };
+}
+
+export function refreshTrainingPlanFromFeedback(params: {
+  existingPlan: TrainingPlanOutput;
+  profile: RunnerProfile;
+  goal: RaceGoal;
+  paces?: TrainingPaces;
+}): TrainingPlanOutput {
+  const feedback = countWorkoutFeedback(params.existingPlan);
+  const loadAdjustmentFactor = calculateLoadAdjustmentFromFeedback(feedback);
+
+  return generateTrainingPlan({
+    profile: params.profile,
+    goal: params.goal,
+    paces: params.paces,
+    loadAdjustmentFactor,
+    replanCount: params.existingPlan.replanCount + 1,
+    refreshContext: feedback
+  });
 }

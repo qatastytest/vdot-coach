@@ -13,6 +13,7 @@ import {
 import { BaselineSnapshot } from "@/lib/domain/models";
 import { getStoredBaseline, getStoredProfile } from "@/lib/storage/local";
 import { Badge } from "@/components/ui/Badge";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { Panel } from "@/components/ui/Panel";
 
 export function ResultsDashboard(): React.JSX.Element {
@@ -66,7 +67,13 @@ export function ResultsDashboard(): React.JSX.Element {
             <p className="mt-1 text-3xl font-semibold">{baseline.vdot.toFixed(1)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 p-4">
-            <p className="text-sm text-slate-600">Confidence</p>
+            <p className="flex items-center gap-1 text-sm text-slate-600">
+              Confidence
+              <InfoTip
+                title="Confidence Level"
+                content="High means all-out track/flat-road effort. Medium includes mild elevation/conditions. Low means trail, controlled effort, or strong wind/elevation."
+              />
+            </p>
             <div className="mt-2">
               <Badge label={baseline.confidence.label.toUpperCase()} tone={confidenceTone} />
             </div>

@@ -6,7 +6,9 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 - Race time predictions (1500m, mile, 3K, 5K, 10K, HM, Marathon)
 - Training pace zones and lap split conversions
 - Heart rate zone estimates using three methods
-- Conservative rule-based 4-week and 8-week training plans for 5K, 10K, HM goals
+- Conservative rule-based 4/8/12/16-week training plans for 5K, 10K, HM goals
+- Editable workouts with done/skip tracking and plan refresh from feedback
+- In-app concept tooltips (LTHR, resting HR, confidence) and quick measurement guidance
 
 ## Tech Stack
 
@@ -61,6 +63,7 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
   - race goal
   - generated plan
 - Existing legacy single-profile localStorage data is auto-migrated into `My Profile`.
+- Profile card customization supports icon, card color, theme label, short description, and 5K PB display.
 - This is still local browser persistence (no cloud sync/account auth yet).
 
 ## Scientific Formulas (Implemented)
@@ -97,11 +100,14 @@ Notes:
 - Week 1 starts at 90-100% of current weekly km (default 95%)
 - Weekly progression is conservative (roughly 5-7%)
 - Deload and taper logic included
+- Supports 4, 8, 12, and 16 week durations
 - Weekly km never exceeds `weekly_km_max_tolerated`
 - Run-day templates:
   - 3 days: one quality, one easy, one long run
   - 4+ days: max 2 key sessions + long run + easy/recovery
 - Missed workout and fatigue fallback guidance included per week/workout
+- Workout edits, done/skip status, and "actual workout" logging supported
+- Refresh button regenerates a conservative plan from completion/skip feedback
 
 ## Validation and Error Handling
 

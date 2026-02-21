@@ -7,6 +7,7 @@ import {
   estimateHrZonesKarvonen
 } from "@/lib/core";
 import { getStoredProfile, setStoredProfile } from "@/lib/storage/local";
+import { InfoTip } from "@/components/ui/InfoTip";
 
 export function HrSetupForm(): React.JSX.Element {
   const profile = getStoredProfile();
@@ -75,7 +76,13 @@ export function HrSetupForm(): React.JSX.Element {
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         <label>
-          <span className="label">Max HR</span>
+          <span className="label flex items-center gap-1">
+            Max HR
+            <InfoTip
+              title="Max HR"
+              content="Use your highest reliable HR from a hard uphill finish or repeated short intervals."
+            />
+          </span>
           <input
             className="input"
             type="number"
@@ -85,7 +92,13 @@ export function HrSetupForm(): React.JSX.Element {
           />
         </label>
         <label>
-          <span className="label">Resting HR</span>
+          <span className="label flex items-center gap-1">
+            Resting HR
+            <InfoTip
+              title="Resting HR"
+              content="Measure on waking before standing. Use weekly average for stability, not one random day."
+            />
+          </span>
           <input
             className="input"
             type="number"
@@ -95,7 +108,13 @@ export function HrSetupForm(): React.JSX.Element {
           />
         </label>
         <label>
-          <span className="label">LTHR</span>
+          <span className="label flex items-center gap-1">
+            LTHR
+            <InfoTip
+              title="LTHR"
+              content="From a 30-min time trial: average HR over the final 20 minutes. Re-test every 6-8 weeks."
+            />
+          </span>
           <input
             className="input"
             type="number"
@@ -113,6 +132,11 @@ export function HrSetupForm(): React.JSX.Element {
 
       <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         HR zones are estimates only. Heat, hydration, fatigue, stress, caffeine, and terrain can shift observed HR.
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        Quick setup guide: start with resting HR + max HR if known. Add LTHR once you complete a controlled 30-min
+        threshold test for better zone targeting.
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

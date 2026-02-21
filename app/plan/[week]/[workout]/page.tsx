@@ -9,8 +9,8 @@ interface WorkoutDetailPageProps {
 
 export function generateStaticParams(): Array<{ week: string; workout: string }> {
   const params: Array<{ week: string; workout: string }> = [];
-  for (let week = 0; week < 8; week += 1) {
-    for (let workout = 0; workout < 6; workout += 1) {
+  for (let week = 0; week < 16; week += 1) {
+    for (let workout = 0; workout < 7; workout += 1) {
       params.push({ week: String(week), workout: String(workout) });
     }
   }

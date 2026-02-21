@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RunnerProfile } from "@/lib/domain/models";
 import { getStoredProfile, setStoredProfile } from "@/lib/storage/local";
 import { RunnerProfileFormValues, runnerProfileSchema } from "@/lib/validation/schemas";
+import { InfoTip } from "@/components/ui/InfoTip";
 
 const DEFAULT_PROFILE: RunnerProfileFormValues = {
   weeklyKmCurrent: 40,
@@ -135,7 +136,13 @@ export function RunnerProfileForm(): React.JSX.Element {
       </label>
 
       <label>
-        <span className="label">Max HR (optional)</span>
+        <span className="label flex items-center gap-1">
+          Max HR (optional)
+          <InfoTip
+            title="Max HR"
+            content="Use best recent sprint/interval test or lab value. Watch data often underestimates true max."
+          />
+        </span>
         <input
           className="input"
           type="number"
@@ -147,7 +154,13 @@ export function RunnerProfileForm(): React.JSX.Element {
       </label>
 
       <label>
-        <span className="label">Resting HR (optional)</span>
+        <span className="label flex items-center gap-1">
+          Resting HR (optional)
+          <InfoTip
+            title="Resting HR"
+            content="Measure right after waking for 3-7 mornings and use the average. Avoid caffeine beforehand."
+          />
+        </span>
         <input
           className="input"
           type="number"
@@ -162,7 +175,13 @@ export function RunnerProfileForm(): React.JSX.Element {
       </label>
 
       <label>
-        <span className="label">LTHR (optional)</span>
+        <span className="label flex items-center gap-1">
+          LTHR (optional)
+          <InfoTip
+            title="LTHR"
+            content="Approximate from a 30-minute hard time trial: average HR of final 20 minutes is your running LTHR."
+          />
+        </span>
         <input
           className="input"
           type="number"

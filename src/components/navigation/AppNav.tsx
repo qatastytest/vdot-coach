@@ -31,8 +31,9 @@ export function AppNav(): React.JSX.Element {
             VDOT Coach
           </Link>
           {activeProfile ? (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
-              {activeProfile.name}
+            <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+              <span>{activeProfile.appearance.icon}</span>
+              <span>{activeProfile.name}</span>
             </span>
           ) : null}
         </div>

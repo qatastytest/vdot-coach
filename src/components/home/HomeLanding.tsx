@@ -2,28 +2,34 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { formatTime, parseTimeToSeconds } from "@/lib/core";
 import {
+  PROFILE_COLOR_PRESETS,
+  PROFILE_ICON_PRESETS,
+  PROFILE_THEME_PRESETS,
   StoredProfileSummary,
   createStoredProfile,
   getActiveProfileId,
   listStoredProfiles,
-  setActiveProfile
+  setActiveProfile,
+  updateStoredProfileAppearance
 } from "@/lib/storage/local";
 
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "P";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+interface ProfileCardEditForm {
+  icon: string;
+  cardColor: string;
+  theme: string;
+  description: string;
+  fiveKTime: string;
 }
-
-const CARD_COLORS = ["bg-teal-600", "bg-blue-600", "bg-rose-600", "bg-amber-600", "bg-indigo-600"];
 
 export function HomeLanding(): React.JSX.Element {
   const [profiles, setProfiles] = useState<StoredProfileSummary[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [newProfileName, setNewProfileName] = useState("Andrei");
   const [error, setError] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<ProfileCardEditForm | null>(null);
 
   useEffect(() => {
     setProfiles(listStoredProfiles());
@@ -58,6 +64,48 @@ export function HomeLanding(): React.JSX.Element {
     refreshState();
   }
 
+  function startEditing(profile: StoredProfileSummary): void {
+    setEditingProfileId(profile.id);
+    setEditForm({
+      icon: profile.appearance.icon,
+      cardColor: profile.appearance.cardColor,
+      theme: profile.appearance.theme,
+      description: profile.appearance.description,
+      fiveKTime: profile.appearance.fiveKTimeSeconds ? formatTime(profile.appearance.fiveKTimeSeconds) : ""
+    });
+  }
+
+  function saveProfileCardEdits(): void {
+    if (!editingProfileId || !editForm) return;
+    let fiveKTimeSeconds: number | undefined;
+
+    if (editForm.fiveKTime.trim() !== "") {
+      try {
+        fiveKTimeSeconds = parseTimeToSeconds(editForm.fiveKTime.trim());
+      } catch {
+        setError("5K time must be mm:ss or hh:mm:ss.");
+        return;
+      }
+    }
+
+    const ok = updateStoredProfileAppearance(editingProfileId, {
+      icon: editForm.icon,
+      cardColor: editForm.cardColor,
+      theme: editForm.theme as (typeof PROFILE_THEME_PRESETS)[number],
+      description: editForm.description,
+      fiveKTimeSeconds
+    });
+    if (!ok) {
+      setError("Could not save profile card edits.");
+      return;
+    }
+
+    setError(null);
+    setEditingProfileId(null);
+    setEditForm(null);
+    refreshState();
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
@@ -67,26 +115,45 @@ export function HomeLanding(): React.JSX.Element {
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {profiles.map((profile, index) => {
+          {profiles.map((profile) => {
             const selected = profile.id === activeProfileId;
             return (
-              <button
+              <div
                 key={profile.id}
-                type="button"
-                onClick={() => handleProfileSelect(profile.id)}
-                className={`rounded-xl border p-4 text-left transition ${
+                className={`rounded-xl border p-4 transition ${
                   selected ? "border-accent ring-2 ring-accent/20" : "border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-lg text-lg font-semibold text-white ${CARD_COLORS[index % CARD_COLORS.length]}`}>
-                  {initialsFromName(profile.name)}
+                <div className="flex items-start justify-between">
+                  <button type="button" className="text-left" onClick={() => handleProfileSelect(profile.id)}>
+                    <div
+                      className={`mb-3 flex h-14 w-14 items-center justify-center rounded-lg text-2xl font-semibold text-white ${profile.appearance.cardColor}`}
+                    >
+                      {profile.appearance.icon}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startEditing(profile)}
+                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    Edit
+                  </button>
                 </div>
-                <p className="text-base font-medium">{profile.name}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {profile.hasRunnerProfile ? "Profile set" : "Profile not set"} |{" "}
-                  {profile.hasPlan ? "Plan available" : "No plan yet"}
-                </p>
-              </button>
+                <button type="button" className="w-full text-left" onClick={() => handleProfileSelect(profile.id)}>
+                  <p className="text-base font-medium">{profile.name}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {profile.hasRunnerProfile ? "Profile set" : "Profile not set"} |{" "}
+                    {profile.hasPlan ? "Plan available" : "No plan yet"}
+                  </p>
+                  {profile.appearance.description ? (
+                    <p className="mt-1 text-xs text-slate-500">{profile.appearance.description}</p>
+                  ) : null}
+                  {profile.appearance.fiveKTimeSeconds ? (
+                    <p className="mt-1 text-xs text-slate-500">5K PB: {formatTime(profile.appearance.fiveKTimeSeconds)}</p>
+                  ) : null}
+                </button>
+              </div>
             );
           })}
         </div>
@@ -104,9 +171,88 @@ export function HomeLanding(): React.JSX.Element {
               Create
             </button>
           </div>
-          {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
         </div>
       </section>
+
+      {editingProfileId && editForm ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-semibold">Edit Profile Card</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label>
+              <span className="label">Icon</span>
+              <div className="grid grid-cols-6 gap-2">
+                {PROFILE_ICON_PRESETS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setEditForm((prev) => (prev ? { ...prev, icon } : prev))}
+                    className={`rounded border px-2 py-2 text-xl ${editForm.icon === icon ? "border-accent" : "border-slate-300"}`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <label>
+              <span className="label">Card Color</span>
+              <div className="grid grid-cols-6 gap-2">
+                {PROFILE_COLOR_PRESETS.map((colorClass) => (
+                  <button
+                    key={colorClass}
+                    type="button"
+                    onClick={() => setEditForm((prev) => (prev ? { ...prev, cardColor: colorClass } : prev))}
+                    className={`h-8 rounded border ${colorClass} ${editForm.cardColor === colorClass ? "ring-2 ring-accent" : "border-slate-200"}`}
+                  />
+                ))}
+              </div>
+            </label>
+
+            <label>
+              <span className="label">Theme</span>
+              <select
+                className="input"
+                value={editForm.theme}
+                onChange={(event) => setEditForm((prev) => (prev ? { ...prev, theme: event.target.value } : prev))}
+              >
+                {PROFILE_THEME_PRESETS.map((theme) => (
+                  <option key={theme} value={theme}>
+                    {theme}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span className="label">5K PB (optional)</span>
+              <input
+                className="input"
+                value={editForm.fiveKTime}
+                onChange={(event) => setEditForm((prev) => (prev ? { ...prev, fiveKTime: event.target.value } : prev))}
+                placeholder="22:30"
+              />
+            </label>
+
+            <label className="md:col-span-2">
+              <span className="label">Short Description</span>
+              <textarea
+                className="input min-h-20"
+                value={editForm.description}
+                onChange={(event) => setEditForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
+                placeholder="e.g. Preparing for spring HM, prefers easy trails."
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button type="button" className="btn-primary" onClick={saveProfileCardEdits}>
+              Save Card
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setEditingProfileId(null)}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {activeProfile ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
@@ -127,9 +273,15 @@ export function HomeLanding(): React.JSX.Element {
             </Link>
             <Link href="/goal" className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
               <p className="font-medium">Generate Plan</p>
-              <p className="muted mt-1">4 or 8 week plan</p>
+              <p className="muted mt-1">4/8/12/16 week plan</p>
             </Link>
           </div>
+        </section>
+      ) : null}
+
+      {error ? (
+        <section className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
         </section>
       ) : null}
     </div>

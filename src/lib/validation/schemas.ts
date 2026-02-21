@@ -73,7 +73,7 @@ export const raceGoalSchema = z.object({
     "Sunday"
   ]),
   trackAccess: z.boolean(),
-  planLengthWeeks: z.union([z.literal(4), z.literal(8)])
+  planLengthWeeks: z.union([z.literal(4), z.literal(8), z.literal(12), z.literal(16)])
 });
 
 export type PerformanceFormValues = z.infer<typeof performanceFormSchema>;

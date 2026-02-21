@@ -1,5 +1,5 @@
 import { BaselineSnapshot, RaceGoal, RunnerProfile } from "@/lib/domain/models";
-import { TrainingPlanOutput } from "@/lib/plan";
+import { PlannedWorkout, TrainingPlanOutput, WorkoutStatus } from "@/lib/plan";
 
 const LEGACY_KEYS = {
   baseline: "vdot-coach:baseline",
@@ -10,11 +10,33 @@ const LEGACY_KEYS = {
 
 const STATE_KEY = "vdot-coach:profiles-state";
 
+export const PROFILE_ICON_PRESETS = ["🏃", "⚡", "🔥", "🌿", "🏔️", "🎯"] as const;
+export const PROFILE_COLOR_PRESETS = [
+  "bg-teal-600",
+  "bg-blue-600",
+  "bg-rose-600",
+  "bg-amber-600",
+  "bg-indigo-600",
+  "bg-emerald-600"
+] as const;
+export const PROFILE_THEME_PRESETS = ["classic", "ocean", "sunrise", "forest"] as const;
+
+export type ProfileTheme = (typeof PROFILE_THEME_PRESETS)[number];
+
+export interface ProfileAppearance {
+  icon: string;
+  cardColor: string;
+  theme: ProfileTheme;
+  description: string;
+  fiveKTimeSeconds?: number;
+}
+
 interface StoredProfileRecord {
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
+  appearance: ProfileAppearance;
   profile: RunnerProfile | null;
   baseline: BaselineSnapshot | null;
   goal: RaceGoal | null;
@@ -22,7 +44,7 @@ interface StoredProfileRecord {
 }
 
 interface ProfilesState {
-  version: 1;
+  version: 2;
   activeProfileId: string | null;
   profiles: StoredProfileRecord[];
 }
@@ -34,6 +56,7 @@ export interface StoredProfileSummary {
   updatedAt: string;
   hasRunnerProfile: boolean;
   hasPlan: boolean;
+  appearance: ProfileAppearance;
 }
 
 function safeRead<T>(key: string): T | null {
@@ -61,11 +84,58 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function createId(): string {
+function createId(prefix = "p"): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
-  return `p-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+}
+
+function defaultAppearance(seed = 0): ProfileAppearance {
+  return {
+    icon: PROFILE_ICON_PRESETS[seed % PROFILE_ICON_PRESETS.length],
+    cardColor: PROFILE_COLOR_PRESETS[seed % PROFILE_COLOR_PRESETS.length],
+    theme: "classic",
+    description: "",
+    fiveKTimeSeconds: undefined
+  };
+}
+
+function normalizePlan(plan: TrainingPlanOutput | null): TrainingPlanOutput | null {
+  if (!plan) return null;
+  return {
+    ...plan,
+    id: plan.id ?? createId("plan"),
+    replanCount: plan.replanCount ?? 0,
+    weeks: Array.isArray(plan.weeks)
+      ? plan.weeks.map((week) => ({
+          ...week,
+          workouts: Array.isArray(week.workouts)
+            ? week.workouts.map((workout) => ({
+                ...workout,
+                status: workout.status ?? "planned"
+              }))
+            : []
+        }))
+      : []
+  };
+}
+
+function normalizeProfileRecord(raw: Partial<StoredProfileRecord>, index: number): StoredProfileRecord {
+  return {
+    id: raw.id ?? createId(),
+    name: raw.name?.trim() || "Profile",
+    createdAt: raw.createdAt ?? nowIso(),
+    updatedAt: raw.updatedAt ?? nowIso(),
+    appearance: {
+      ...defaultAppearance(index),
+      ...(raw.appearance ?? {})
+    },
+    profile: raw.profile ?? null,
+    baseline: raw.baseline ?? null,
+    goal: raw.goal ?? null,
+    plan: normalizePlan(raw.plan ?? null)
+  };
 }
 
 function toSummary(record: StoredProfileRecord): StoredProfileSummary {
@@ -75,14 +145,29 @@ function toSummary(record: StoredProfileRecord): StoredProfileSummary {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     hasRunnerProfile: Boolean(record.profile),
-    hasPlan: Boolean(record.plan)
+    hasPlan: Boolean(record.plan),
+    appearance: record.appearance
   };
 }
 
 function migrateFromLegacyIfNeeded(): ProfilesState {
-  const existing = safeRead<ProfilesState>(STATE_KEY);
-  if (existing && existing.version === 1 && Array.isArray(existing.profiles)) {
-    return existing;
+  const existing = safeRead<Partial<ProfilesState>>(STATE_KEY);
+  if (existing && Array.isArray(existing.profiles)) {
+    const normalizedProfiles = existing.profiles.map((profile, index) =>
+      normalizeProfileRecord(profile as Partial<StoredProfileRecord>, index)
+    );
+    const activeExists = normalizedProfiles.some((profile) => profile.id === existing.activeProfileId);
+    const normalizedState: ProfilesState = {
+      version: 2,
+      activeProfileId: activeExists
+        ? existing.activeProfileId ?? null
+        : normalizedProfiles.length > 0
+          ? normalizedProfiles[0].id
+          : null,
+      profiles: normalizedProfiles
+    };
+    safeWrite(STATE_KEY, normalizedState);
+    return normalizedState;
   }
 
   const legacyProfile = safeRead<RunnerProfile>(LEGACY_KEYS.profile);
@@ -97,15 +182,16 @@ function migrateFromLegacyIfNeeded(): ProfilesState {
         name: "My Profile",
         createdAt: nowIso(),
         updatedAt: nowIso(),
+        appearance: defaultAppearance(0),
         profile: legacyProfile,
         baseline: legacyBaseline,
         goal: legacyGoal,
-        plan: legacyPlan
+        plan: normalizePlan(legacyPlan)
       }
     : null;
 
   const nextState: ProfilesState = {
-    version: 1,
+    version: 2,
     activeProfileId: migratedProfile ? migratedProfile.id : null,
     profiles: migratedProfile ? [migratedProfile] : []
   };
@@ -155,6 +241,11 @@ export function listStoredProfiles(): StoredProfileSummary[] {
   return readState().profiles.map(toSummary);
 }
 
+export function getStoredProfileById(profileId: string): StoredProfileSummary | null {
+  const profile = readState().profiles.find((item) => item.id === profileId);
+  return profile ? toSummary(profile) : null;
+}
+
 export function getActiveProfileId(): string | null {
   return readState().activeProfileId;
 }
@@ -168,18 +259,19 @@ export function createStoredProfile(name: string): StoredProfileSummary {
   const trimmed = name.trim();
   const safeName = trimmed.length > 0 ? trimmed : "New Profile";
   const timestamp = nowIso();
+  const state = readState();
   const record: StoredProfileRecord = {
     id: createId(),
     name: safeName,
     createdAt: timestamp,
     updatedAt: timestamp,
+    appearance: defaultAppearance(state.profiles.length),
     profile: null,
     baseline: null,
     goal: null,
     plan: null
   };
 
-  const state = readState();
   const nextState: ProfilesState = {
     ...state,
     activeProfileId: record.id,
@@ -217,6 +309,33 @@ export function renameStoredProfile(profileId: string, nextName: string): boolea
             ...profile,
             name: normalized,
             updatedAt: nowIso()
+          }
+        : profile
+    )
+  };
+  writeState(nextState);
+  return true;
+}
+
+export function updateStoredProfileAppearance(
+  profileId: string,
+  appearancePatch: Partial<ProfileAppearance>
+): boolean {
+  const state = readState();
+  const found = state.profiles.some((profile) => profile.id === profileId);
+  if (!found) return false;
+
+  const nextState: ProfilesState = {
+    ...state,
+    profiles: state.profiles.map((profile) =>
+      profile.id === profileId
+        ? {
+            ...profile,
+            updatedAt: nowIso(),
+            appearance: {
+              ...profile.appearance,
+              ...appearancePatch
+            }
           }
         : profile
     )
@@ -284,7 +403,65 @@ export function getStoredPlan(): TrainingPlanOutput | null {
 export function setStoredPlan(plan: TrainingPlanOutput): boolean {
   return updateActiveRecord((record) => ({
     ...record,
-    plan,
+    plan: normalizePlan(plan),
     updatedAt: nowIso()
   }));
+}
+
+export function mutateStoredPlan(
+  mutator: (currentPlan: TrainingPlanOutput) => TrainingPlanOutput
+): boolean {
+  return updateActiveRecord((record) => {
+    if (!record.plan) return record;
+    const nextPlan = normalizePlan(mutator(record.plan));
+    return {
+      ...record,
+      plan: nextPlan,
+      updatedAt: nowIso()
+    };
+  });
+}
+
+export function updateStoredWorkout(
+  weekIndex: number,
+  workoutIndex: number,
+  updates: Partial<PlannedWorkout>
+): boolean {
+  return mutateStoredPlan((currentPlan) => {
+    const weeks = currentPlan.weeks.map((week, currentWeekIndex) => {
+      if (currentWeekIndex !== weekIndex) return week;
+      const workouts = week.workouts.map((workout, currentWorkoutIndex) => {
+        if (currentWorkoutIndex !== workoutIndex) return workout;
+        return {
+          ...workout,
+          ...updates,
+          lastEditedAt: nowIso(),
+          isEdited: true
+        };
+      });
+      return { ...week, workouts };
+    });
+    return { ...currentPlan, weeks };
+  });
+}
+
+export function setStoredWorkoutStatus(
+  weekIndex: number,
+  workoutIndex: number,
+  status: WorkoutStatus,
+  payload?: {
+    actualSummary?: string;
+    actualDistanceKm?: number;
+    actualRpe?: string;
+    actualNotes?: string;
+  }
+): boolean {
+  return updateStoredWorkout(weekIndex, workoutIndex, {
+    status,
+    completedAt: status === "planned" ? undefined : nowIso(),
+    actualSummary: payload?.actualSummary,
+    actualDistanceKm: payload?.actualDistanceKm,
+    actualRpe: payload?.actualRpe,
+    actualNotes: payload?.actualNotes
+  });
 }

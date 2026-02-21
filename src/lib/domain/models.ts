@@ -42,7 +42,7 @@ export interface RaceGoal {
     | "Saturday"
     | "Sunday";
   trackAccess: boolean;
-  planLengthWeeks: 4 | 8;
+  planLengthWeeks: 4 | 8 | 12 | 16;
 }
 
 export interface BaselineSnapshot {
