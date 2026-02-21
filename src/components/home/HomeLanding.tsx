@@ -96,10 +96,10 @@ const DEFAULT_GOAL_FORM: RaceGoalFormValues = {
 };
 
 const THEME_ACCENTS: Record<(typeof PROFILE_THEME_PRESETS)[number], string> = {
-  classic: "from-teal-600 to-cyan-600",
-  ocean: "from-blue-600 to-sky-600",
-  sunrise: "from-amber-500 to-rose-500",
-  forest: "from-emerald-600 to-lime-600"
+  classic: "linear-gradient(135deg, #0f766e 0%, #0891b2 100%)",
+  ocean: "linear-gradient(135deg, #1d4ed8 0%, #0284c7 100%)",
+  sunrise: "linear-gradient(135deg, #d97706 0%, #e11d48 100%)",
+  forest: "linear-gradient(135deg, #15803d 0%, #16a34a 100%)"
 };
 
 function optionalNumber(value: number | "" | undefined): number | undefined {
@@ -120,8 +120,25 @@ function parseDate(dateString: string): Date {
   return new Date(`${dateString}T12:00:00`);
 }
 
+function resolveTheme(theme: string): (typeof PROFILE_THEME_PRESETS)[number] {
+  return PROFILE_THEME_PRESETS.includes(theme as (typeof PROFILE_THEME_PRESETS)[number])
+    ? (theme as (typeof PROFILE_THEME_PRESETS)[number])
+    : "classic";
+}
+
+function resolveCardColor(color: string): string {
+  return PROFILE_COLOR_PRESETS.includes(color as (typeof PROFILE_COLOR_PRESETS)[number])
+    ? color
+    : PROFILE_COLOR_PRESETS[0];
+}
+
 function cleanText(value: string): string {
-  return value.replaceAll("â€¢", "-").replaceAll("â€“", "-").replaceAll("â€”", "-").replaceAll("Â", " ");
+  return value
+    .replaceAll("â€¢", "-")
+    .replaceAll("â€“", "-")
+    .replaceAll("â€”", "-")
+    .replaceAll("Â", " ")
+    .trim();
 }
 
 function statusClass(status: "planned" | "done" | "skipped"): string {
@@ -531,14 +548,24 @@ export function HomeLanding(): React.JSX.Element {
 
   const goalLabel = goal?.goalDistance === "half" ? "Half Marathon" : goal?.goalDistance?.toUpperCase() ?? "No goal";
   const confidenceTone = baseline?.confidence.label === "high" ? "bg-emerald-100 text-emerald-800" : baseline?.confidence.label === "medium" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800";
+  const activeTheme = resolveTheme(activeProfile.appearance.theme);
+  const activeCardColor = resolveCardColor(activeProfile.appearance.cardColor);
 
   return (
     <div className="space-y-6">
-      <section className={`rounded-2xl bg-gradient-to-br p-6 text-white ${THEME_ACCENTS[activeProfile.appearance.theme]}`}>
+      <section
+        className="rounded-2xl bg-slate-900 p-6 text-white"
+        style={{ backgroundImage: THEME_ACCENTS[activeTheme] }}
+      >
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm text-white/85">Active profile</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{activeProfile.appearance.icon} {activeProfile.name}</h1>
+            <h1 className="mt-1 flex items-center gap-3 text-3xl font-semibold tracking-tight">
+              <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl text-2xl text-white ${activeCardColor}`}>
+                {activeProfile.appearance.icon}
+              </span>
+              <span>{activeProfile.name}</span>
+            </h1>
             <p className="mt-2 text-sm text-white/90">{activeProfile.appearance.description || "Add description and 5K time from Edit card."}</p>
             {activeProfile.appearance.fiveKTimeSeconds ? <p className="mt-1 text-sm text-white/90">Best 5K: {formatTime(activeProfile.appearance.fiveKTimeSeconds)}</p> : null}
           </div>
@@ -565,6 +592,23 @@ export function HomeLanding(): React.JSX.Element {
             <label><span className="label">Theme</span><select className="input" value={editForm.theme} onChange={(e) => patchEditForm({ theme: e.target.value })}>{PROFILE_THEME_PRESETS.map((theme) => <option key={theme} value={theme}>{theme}</option>)}</select></label>
             <label><span className="label">Best 5K</span><input className="input" value={editForm.fiveKTime} onChange={(e) => patchEditForm({ fiveKTime: e.target.value })} placeholder="mm:ss" /></label>
             <label className="md:col-span-2"><span className="label">Description</span><textarea className="input min-h-20" value={editForm.description} onChange={(e) => patchEditForm({ description: e.target.value })} /></label>
+            <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Preview</p>
+              <div
+                className="mt-2 flex items-center gap-3 rounded-lg p-3 text-white"
+                style={{ backgroundImage: THEME_ACCENTS[resolveTheme(editForm.theme)] }}
+              >
+                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg text-xl text-white ${resolveCardColor(editForm.cardColor)}`}>
+                  {editForm.icon}
+                </span>
+                <div>
+                  <p className="font-semibold">{activeProfile.name}</p>
+                  <p className="text-xs text-white/90">
+                    {editForm.description || "Profile description preview"}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
           <button type="button" className="btn-primary mt-4" onClick={saveCardEdits}>Save Card Style</button>
         </section>

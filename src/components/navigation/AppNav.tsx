@@ -36,7 +36,11 @@ export function AppNav(): React.JSX.Element {
           </Link>
           {activeProfile ? (
             <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
-              <span>{activeProfile.appearance.icon}</span>
+              <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] text-white ${activeProfile.appearance.cardColor}`}
+              >
+                {activeProfile.appearance.icon}
+              </span>
               <span>{activeProfile.name}</span>
             </span>
           ) : null}

@@ -8,10 +8,11 @@ import {
   buildRacePredictions,
   calculateVdotFromPerformance,
   deriveTrainingPaces,
+  formatTime,
   parseTimeToSeconds
 } from "@/lib/core";
 import { BaselineSnapshot } from "@/lib/domain/models";
-import { setStoredBaseline } from "@/lib/storage/local";
+import { getStoredBaseline, setStoredBaseline } from "@/lib/storage/local";
 import { PerformanceFormValues, performanceFormSchema } from "@/lib/validation/schemas";
 
 const DEFAULT_FORM: PerformanceFormValues = {
@@ -30,9 +31,27 @@ function optionalNumber(value: number | "" | undefined): number | undefined {
   return value === "" || value === undefined ? undefined : value;
 }
 
+function baselineToForm(baseline: BaselineSnapshot): PerformanceFormValues {
+  return {
+    distanceMeters: baseline.performance.distanceMeters,
+    time: formatTime(baseline.performance.timeSeconds),
+    date: baseline.performance.date,
+    eventType: baseline.performance.eventType,
+    effortType: baseline.performance.effortType,
+    surface: baseline.performance.surface,
+    elevationGainM: baseline.performance.elevationGainM ?? "",
+    temperatureC: baseline.performance.temperatureC ?? "",
+    windKph: baseline.performance.windKph ?? ""
+  };
+}
+
 export function PerformanceForm(): React.JSX.Element {
   const router = useRouter();
-  const [form, setForm] = useState<PerformanceFormValues>(DEFAULT_FORM);
+  const [existingBaseline] = useState<BaselineSnapshot | null>(() => getStoredBaseline());
+  const [form, setForm] = useState<PerformanceFormValues>(() =>
+    existingBaseline ? baselineToForm(existingBaseline) : DEFAULT_FORM
+  );
+  const [mode, setMode] = useState<"saved" | "new">(() => (existingBaseline ? "saved" : "new"));
   const [errors, setErrors] = useState<string[]>([]);
 
   const distanceChoices = useMemo(
@@ -93,8 +112,58 @@ export function PerformanceForm(): React.JSX.Element {
     router.push("/results");
   }
 
+  function handleUseSaved(): void {
+    if (!existingBaseline) return;
+    setMode("saved");
+    setErrors([]);
+    setForm(baselineToForm(existingBaseline));
+  }
+
+  function handleAddNew(): void {
+    setMode("new");
+    setErrors([]);
+    setForm({
+      ...DEFAULT_FORM,
+      date: new Date().toISOString().slice(0, 10)
+    });
+  }
+
   return (
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
+      {existingBaseline ? (
+        <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-medium text-slate-800">Performance source</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Saved baseline: {formatTime(existingBaseline.performance.timeSeconds)} /{" "}
+            {(existingBaseline.performance.distanceMeters / 1000).toFixed(2)} km ({existingBaseline.performance.date})
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleUseSaved}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                mode === "saved"
+                  ? "border-accent bg-teal-50 text-teal-800"
+                  : "border-slate-300 bg-white text-slate-700"
+              }`}
+            >
+              Use Saved Baseline
+            </button>
+            <button
+              type="button"
+              onClick={handleAddNew}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                mode === "new"
+                  ? "border-accent bg-teal-50 text-teal-800"
+                  : "border-slate-300 bg-white text-slate-700"
+              }`}
+            >
+              Add New Performance
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <label>
         <span className="label">Distance</span>
         <select

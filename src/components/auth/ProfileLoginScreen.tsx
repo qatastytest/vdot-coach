@@ -5,9 +5,21 @@ import { useRouter } from "next/navigation";
 import {
   StoredProfileSummary,
   createStoredProfile,
+  deleteStoredProfile,
   listStoredProfiles,
   setActiveProfile
 } from "@/lib/storage/local";
+
+const THEME_TILE_RING: Record<string, string> = {
+  classic: "border-teal-200/40 hover:border-teal-200/70",
+  ocean: "border-sky-200/40 hover:border-sky-200/70",
+  sunrise: "border-amber-200/45 hover:border-amber-200/75",
+  forest: "border-emerald-200/40 hover:border-emerald-200/70"
+};
+
+function themeRingClass(theme: string): string {
+  return THEME_TILE_RING[theme] ?? THEME_TILE_RING.classic;
+}
 
 export function ProfileLoginScreen(): React.JSX.Element {
   const router = useRouter();
@@ -46,6 +58,24 @@ export function ProfileLoginScreen(): React.JSX.Element {
     router.push("/dashboard");
   }
 
+  function handleDeleteProfile(profileId: string, profileName: string): void {
+    setError(null);
+    const confirmed = window.confirm(`Delete profile "${profileName}"? This removes local data for this profile.`);
+    if (!confirmed) return;
+
+    const ok = deleteStoredProfile(profileId);
+    if (!ok) {
+      setError("Could not delete profile. Try again.");
+      return;
+    }
+
+    const nextProfiles = listStoredProfiles();
+    setProfiles(nextProfiles);
+    if (nextProfiles.length === 0) {
+      setShowCreate(true);
+    }
+  }
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/login-track.svg')" }} />
@@ -61,28 +91,48 @@ export function ProfileLoginScreen(): React.JSX.Element {
 
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((profile) => (
-              <button
+              <article
                 key={profile.id}
-                type="button"
-                onClick={() => handleSelectProfile(profile.id)}
-                className="group aspect-square rounded-2xl border border-white/25 bg-white/10 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/20"
+                className={`group relative aspect-square rounded-2xl border bg-white/10 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/20 ${themeRingClass(profile.appearance.theme)}`}
               >
-                <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-between">
-                    <span className="text-3xl">{profile.appearance.icon}</span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectProfile(profile.id)}
+                  className="h-full w-full text-left"
+                >
+                  <div className="flex h-full flex-col">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-2xl text-white ${profile.appearance.cardColor}`}
+                      >
+                        {profile.appearance.icon}
+                      </span>
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] capitalize">
+                        {profile.appearance.theme}
+                      </span>
+                    </div>
+                    <div className="mt-auto">
+                      <p className="text-xl font-semibold">{profile.name}</p>
+                      <p className="mt-1 text-xs text-slate-200">
+                        {profile.hasRunnerProfile ? "profile complete" : "setup pending"}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-300 group-hover:text-white">Enter dashboard</p>
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProfile(profile.id, profile.name)}
+                  className="absolute right-2 top-2 rounded-md border border-rose-300/60 bg-rose-500/15 px-2 py-1 text-[11px] text-rose-100 transition hover:bg-rose-500/25"
+                >
+                  Delete
+                </button>
+                <div className="pointer-events-none absolute bottom-2 right-2">
                     <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px]">
                       {profile.hasPlan ? "plan active" : "new"}
                     </span>
                   </div>
-                  <div className="mt-auto">
-                    <p className="text-xl font-semibold">{profile.name}</p>
-                    <p className="mt-1 text-xs text-slate-200">
-                      {profile.hasRunnerProfile ? "profile complete" : "setup pending"}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-300 group-hover:text-white">Enter dashboard</p>
-                  </div>
-                </div>
-              </button>
+              </article>
             ))}
 
             <button
