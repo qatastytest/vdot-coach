@@ -32,6 +32,15 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 6. Run tests:
    - `npm test`
 
+## GitHub Pages Deploy
+
+- This repo includes automatic deploy workflow: `.github/workflows/deploy-pages.yml`.
+- On every push to `main`, GitHub Actions builds static export and deploys to Pages.
+- Expected Pages URL for this repo:
+  - `https://qatastytest.github.io/vdot-coach/`
+- In GitHub repo settings, ensure:
+  - `Settings -> Pages -> Build and deployment -> Source = GitHub Actions`
+
 ## Routes
 
 - `/` Home dashboard
