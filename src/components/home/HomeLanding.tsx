@@ -91,6 +91,7 @@ const DEFAULT_GOAL_FORM: RaceGoalFormValues = {
   ambition: "realistic_pb",
   daysPerWeek: 4,
   longRunDay: "Sunday",
+  preferredRestDay: "Friday",
   trackAccess: true,
   planLengthWeeks: 12
 };
@@ -104,6 +105,12 @@ const THEME_ACCENTS: Record<(typeof PROFILE_THEME_PRESETS)[number], string> = {
 
 function optionalNumber(value: number | "" | undefined): number | undefined {
   return value === "" || value === undefined ? undefined : value;
+}
+
+function normalizePreferredRestDay(
+  value: string
+): RaceGoal["preferredRestDay"] | undefined {
+  return value.trim() === "" ? undefined : (value as RaceGoal["preferredRestDay"]);
 }
 
 function formatDateLabel(date: Date): string {
@@ -149,7 +156,7 @@ function statusClass(status: "planned" | "done" | "skipped"): string {
 
 function buildCalendarEntries(plan: TrainingPlanOutput, goal: RaceGoal): CalendarEntry[] {
   const totalDays = plan.durationWeeks * 7;
-  const targetDate = parseDate(goal.targetDate);
+  const targetDate = goal.targetDate ? parseDate(goal.targetDate) : addDays(new Date(), totalDays - 1);
   const startDate = addDays(targetDate, -(totalDays - 1));
   const entries: CalendarEntry[] = [];
 
@@ -383,7 +390,7 @@ export function HomeLanding(): React.JSX.Element {
 
     const nextGoal: RaceGoal = {
       goalDistance: parsed.data.goalDistance,
-      targetDate: parsed.data.targetDate,
+      targetDate: parsed.data.targetDate && parsed.data.targetDate.trim() !== "" ? parsed.data.targetDate : undefined,
       targetTimeSeconds:
         parsed.data.targetTime && parsed.data.targetTime.trim() !== ""
           ? parseTimeToSeconds(parsed.data.targetTime)
@@ -391,6 +398,7 @@ export function HomeLanding(): React.JSX.Element {
       ambition: parsed.data.ambition,
       daysPerWeek: parsed.data.daysPerWeek as 3 | 4 | 5 | 6,
       longRunDay: parsed.data.longRunDay,
+      preferredRestDay: normalizePreferredRestDay(String(parsed.data.preferredRestDay ?? "")),
       trackAccess: parsed.data.trackAccess,
       planLengthWeeks: parsed.data.planLengthWeeks
     };
@@ -528,13 +536,15 @@ export function HomeLanding(): React.JSX.Element {
             <h2 className="text-lg font-semibold">Step 3/3: Goal and Plan</h2>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <label><span className="label">Goal Distance</span><select className="input" value={goalForm.goalDistance} onChange={(e) => setGoalForm((p) => ({ ...p, goalDistance: e.target.value as RaceGoal["goalDistance"] }))}><option value="5k">5K</option><option value="10k">10K</option><option value="half">Half Marathon</option></select></label>
-              <label><span className="label">Target Date</span><input className="input" type="date" value={goalForm.targetDate} onChange={(e) => setGoalForm((p) => ({ ...p, targetDate: e.target.value }))} /></label>
+              <label><span className="label">Target Date (optional)</span><input className="input" type="date" value={goalForm.targetDate ?? ""} onChange={(e) => setGoalForm((p) => ({ ...p, targetDate: e.target.value }))} /></label>
               <label><span className="label">Target Time</span><input className="input" value={goalForm.targetTime} onChange={(e) => setGoalForm((p) => ({ ...p, targetTime: e.target.value }))} /></label>
               <label><span className="label">Ambition</span><select className="input" value={goalForm.ambition} onChange={(e) => setGoalForm((p) => ({ ...p, ambition: e.target.value as RaceGoal["ambition"] }))}><option value="finish">Finish</option><option value="realistic_pb">Realistic PB</option><option value="aggressive_pb">Aggressive PB</option></select></label>
               <label><span className="label">Days/week</span><select className="input" value={goalForm.daysPerWeek} onChange={(e) => setGoalForm((p) => ({ ...p, daysPerWeek: Number(e.target.value) as 3 | 4 | 5 | 6 }))}><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option><option value={6}>6</option></select></label>
               <label><span className="label">Long Run Day</span><select className="input" value={goalForm.longRunDay} onChange={(e) => setGoalForm((p) => ({ ...p, longRunDay: e.target.value as RaceGoal["longRunDay"] }))}>{DAY_ORDER.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
+              <label><span className="label">Preferred Rest Day</span><select className="input" value={goalForm.preferredRestDay ?? ""} onChange={(e) => setGoalForm((p) => ({ ...p, preferredRestDay: e.target.value === "" ? undefined : e.target.value as RaceGoalFormValues["preferredRestDay"] }))}><option value="">Auto</option>{DAY_ORDER.map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
               <label><span className="label">Plan Length</span><select className="input" value={goalForm.planLengthWeeks} onChange={(e) => setGoalForm((p) => ({ ...p, planLengthWeeks: Number(e.target.value) as 4 | 8 | 12 | 16 }))}><option value={4}>4 weeks</option><option value={8}>8 weeks</option><option value={12}>12 weeks</option><option value={16}>16 weeks</option></select></label>
               <label className="flex items-center gap-2 pt-8"><input type="checkbox" checked={goalForm.trackAccess} onChange={(e) => setGoalForm((p) => ({ ...p, trackAccess: e.target.checked }))} /><span className="text-sm">Track access</span></label>
+              <label className="flex items-center gap-2 pt-8"><input type="checkbox" checked={!goalForm.targetDate} onChange={(e) => setGoalForm((p) => ({ ...p, targetDate: e.target.checked ? "" : (p.targetDate && p.targetDate !== "" ? p.targetDate : new Date().toISOString().slice(0, 10)) }))} /><span className="text-sm">No race/date in the future</span></label>
             </div>
             <button type="button" className="btn-primary mt-4" onClick={saveGoalAndPlan}>Save Step 3</button>
           </section>
@@ -615,7 +625,7 @@ export function HomeLanding(): React.JSX.Element {
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="panel aspect-square"><p className="text-xs uppercase tracking-wide text-slate-500">Goal</p><p className="mt-2 text-2xl font-semibold">{goalLabel}</p><p className="mt-2 text-sm text-slate-600">{goal ? `Target ${goal.targetDate} - ${goal.planLengthWeeks} weeks` : "Set your goal."}</p><Link href="/goal" className="mt-4 inline-flex text-sm font-medium text-accent">Edit goal</Link></article>
+        <article className="panel aspect-square"><p className="text-xs uppercase tracking-wide text-slate-500">Goal</p><p className="mt-2 text-2xl font-semibold">{goalLabel}</p><p className="mt-2 text-sm text-slate-600">{goal ? `${goal.targetDate ? `Target ${goal.targetDate}` : "No race date set"} - ${goal.planLengthWeeks} weeks` : "Set your goal."}</p><Link href="/goal" className="mt-4 inline-flex text-sm font-medium text-accent">Edit goal</Link></article>
         <article className="panel aspect-square"><p className="text-xs uppercase tracking-wide text-slate-500">VDOT</p><p className="mt-2 text-3xl font-semibold">{baseline ? baseline.vdot.toFixed(1) : "--"}</p>{baseline ? <span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs ${confidenceTone}`}>{baseline.confidence.label.toUpperCase()} confidence</span> : null}<p className="mt-2 text-sm text-slate-600">{baseline ? cleanText(baseline.confidence.reasons[0] ?? "") : "Add baseline performance."}</p><Link href="/results" className="mt-4 inline-flex text-sm font-medium text-accent">Open results</Link></article>
         <article className="panel aspect-square"><p className="text-xs uppercase tracking-wide text-slate-500">Plan Progress</p><p className="mt-2 text-2xl font-semibold">{progress ? `${progress.done}/${progress.total}` : "No plan"}</p><p className="mt-2 text-sm text-slate-600">{progress ? `${progress.done} done, ${progress.skipped} skipped, ${progress.remaining} remaining` : "Generate and track plan."}</p><button type="button" className="btn-secondary mt-4" onClick={refreshFutureWorkouts}>Refresh from feedback</button></article>
         <article className="panel aspect-square"><p className="text-xs uppercase tracking-wide text-slate-500">Next Workout</p>{nextWorkout ? <><p className="mt-2 text-lg font-semibold">{cleanText(nextWorkout.workout.title)}</p><p className="mt-1 text-sm text-slate-600">Week {nextWorkout.week.weekNumber} - {nextWorkout.workout.day}</p><p className="mt-1 text-sm text-slate-600">{nextWorkout.workout.distanceKm} km</p><Link href={`/plan/${nextWorkout.weekIndex}/${nextWorkout.workoutIndex}`} className="mt-4 inline-flex text-sm font-medium text-accent">View/Edit workout</Link></> : <><p className="mt-2 text-sm text-slate-600">No planned workouts left.</p><Link href="/goal" className="mt-4 inline-flex text-sm font-medium text-accent">Build new plan</Link></>}</article>

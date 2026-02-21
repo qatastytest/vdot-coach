@@ -130,7 +130,11 @@ function modDay(index: number): number {
   return (index + 7) % 7;
 }
 
-function resolveRunDayIndices(daysPerWeek: number, longRunDay: string): number[] {
+function resolveRunDayIndices(
+  daysPerWeek: number,
+  longRunDay: string,
+  preferredRestDay?: RaceGoal["preferredRestDay"]
+): number[] {
   const longIdx = DAYS.indexOf(longRunDay as (typeof DAYS)[number]);
   const key1 = modDay(longIdx + 3);
   const key2 = modDay(longIdx + 5);
@@ -152,6 +156,22 @@ function resolveRunDayIndices(daysPerWeek: number, longRunDay: string): number[]
     selected.add(idx);
   }
 
+  if (preferredRestDay) {
+    const preferredRestIdx = DAYS.indexOf(preferredRestDay);
+    const longProtected = preferredRestIdx === longIdx;
+    const key1Protected = preferredRestIdx === key1;
+    const key2Protected = daysPerWeek >= 4 && preferredRestIdx === key2;
+    const canSwapOut = !longProtected && !key1Protected && !key2Protected && selected.has(preferredRestIdx);
+
+    if (canSwapOut) {
+      const replacement = DAYS.map((_, idx) => idx).find((idx) => !selected.has(idx) && idx !== preferredRestIdx);
+      if (replacement !== undefined) {
+        selected.delete(preferredRestIdx);
+        selected.add(replacement);
+      }
+    }
+  }
+
   return [...selected].sort((a, b) => a - b);
 }
 
@@ -160,6 +180,10 @@ function paceString(paces: TrainingPaces | undefined, type: WorkoutType): string
 
   if (type === "easy" || type === "recovery" || type === "long_run") {
     return `${formatPace(paces.easy.lowSecondsPerKm ?? 0)}-${formatPace(paces.easy.highSecondsPerKm ?? 0)}/km`;
+  }
+
+  if (type === "race") {
+    return "Goal race pace (or best controlled race effort)";
   }
 
   if (type === "threshold") {
@@ -176,18 +200,21 @@ function paceString(paces: TrainingPaces | undefined, type: WorkoutType): string
 function hrFallback(profile: RunnerProfile, type: WorkoutType): string {
   if (profile.lthr) {
     if (type === "easy" || type === "long_run") return "LTHR Z1-Z2";
+    if (type === "race") return "LTHR Z4-Z5";
     if (type === "threshold") return "LTHR Z3-Z4";
     return "LTHR Z4-Z5";
   }
 
   if (profile.maxHr && profile.restingHr) {
     if (type === "easy" || type === "long_run") return "Karvonen Z1-Z2";
+    if (type === "race") return "Karvonen Z4-Z5";
     if (type === "threshold") return "Karvonen Z3-Z4";
     return "Karvonen Z4-Z5";
   }
 
   if (profile.maxHr) {
     if (type === "easy" || type === "long_run") return "60-80% max HR";
+    if (type === "race") return "90-100% max HR";
     if (type === "threshold") return "87-93% max HR";
     return "93-100% max HR";
   }
@@ -372,6 +399,33 @@ function longRunWorkout(
   };
 }
 
+function goalDistanceKm(goalDistance: RaceGoal["goalDistance"]): number {
+  if (goalDistance === "5k") return 5;
+  if (goalDistance === "10k") return 10;
+  return 21.1;
+}
+
+function raceWorkout(
+  goalDistance: RaceGoal["goalDistance"]
+): Omit<PlannedWorkout, "id" | "day" | "paceTarget" | "hrFallback" | "distanceKm" | "status"> {
+  const label = goalDistance === "half" ? "Half Marathon" : goalDistance.toUpperCase();
+  return {
+    type: "race",
+    isKey: true,
+    title: `Goal Race Day (${label})`,
+    warmup: "10-20 min easy + 4 x short strides",
+    mainSet: "Race execution by plan and feel. Start controlled, finish strong.",
+    cooldown: "10-15 min easy jog/walk",
+    rpe: "8-10",
+    purpose: "Convert training into race performance.",
+    alternatives: {
+      noTrack: "Use official race route or measured flat course/time trial.",
+      tired: "Treat as controlled effort and adjust target expectations.",
+      missed: "Do not force race effort. Move to next available date."
+    }
+  };
+}
+
 function makeWorkout(
   weekNumber: number,
   day: string,
@@ -509,7 +563,11 @@ export function generateTrainingPlan({
     loadAdjustmentFactor
   );
 
-  const runDayIndices = resolveRunDayIndices(goal.daysPerWeek, goal.longRunDay);
+  const runDayIndices = resolveRunDayIndices(
+    goal.daysPerWeek,
+    goal.longRunDay,
+    goal.preferredRestDay ?? "Friday"
+  );
   const longIdx = DAYS.indexOf(goal.longRunDay);
   const key1Idx = modDay(longIdx + 3);
   const key2Idx = modDay(longIdx + 5);
@@ -517,7 +575,8 @@ export function generateTrainingPlan({
   const weeks: TrainingWeekPlan[] = volumes.map((volume, i) => {
     const weekNumber = i + 1;
     const phase = phases[i];
-    const secondKeyAllowed = goal.daysPerWeek >= 4 && phase !== "deload";
+    const isFinalRaceWeek = weekNumber === goal.planLengthWeeks && phase === "taper";
+    const secondKeyAllowed = goal.daysPerWeek >= 4 && phase !== "deload" && !isFinalRaceWeek;
     const volumePieces = splitVolume(volume, goal.daysPerWeek, secondKeyAllowed);
 
     const workouts: PlannedWorkout[] = [];
@@ -527,7 +586,20 @@ export function generateTrainingPlan({
       const day = DAYS[dayIdx];
 
       if (dayIdx === longIdx) {
-        workouts.push(makeWorkout(weekNumber, day, longRunWorkout(phase), volumePieces.long, paces, profile));
+        if (isFinalRaceWeek) {
+          workouts.push(
+            makeWorkout(
+              weekNumber,
+              day,
+              raceWorkout(goal.goalDistance),
+              goalDistanceKm(goal.goalDistance),
+              paces,
+              profile
+            )
+          );
+        } else {
+          workouts.push(makeWorkout(weekNumber, day, longRunWorkout(phase), volumePieces.long, paces, profile));
+        }
         continue;
       }
 

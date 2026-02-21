@@ -49,7 +49,11 @@ export const runnerProfileSchema = z.object({
 
 export const raceGoalSchema = z.object({
   goalDistance: z.enum(["5k", "10k", "half"]),
-  targetDate: z.string().regex(yyyyMmDd, "Date must be YYYY-MM-DD."),
+  targetDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => !value || yyyyMmDd.test(value), "Date must be YYYY-MM-DD."),
   targetTime: z
     .string()
     .optional()
@@ -73,6 +77,10 @@ export const raceGoalSchema = z.object({
     "Saturday",
     "Sunday"
   ]),
+  preferredRestDay: z
+    .enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+    .optional()
+    .or(z.literal("")),
   trackAccess: z.boolean(),
   planLengthWeeks: z.union([z.literal(4), z.literal(8), z.literal(12), z.literal(16)])
 });

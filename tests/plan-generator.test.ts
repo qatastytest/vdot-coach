@@ -42,6 +42,7 @@ describe("Rule-based plan generator", () => {
     const previous = plan.weeks[plan.weeks.length - 2];
     expect(last.phase).toBe("taper");
     expect(last.targetVolumeKm).toBeLessThan(previous.targetVolumeKm);
+    expect(last.workouts.some((workout) => workout.type === "race")).toBe(true);
   });
 
   it("supports 3 day structure with one quality, one easy, one long run", () => {
@@ -74,6 +75,22 @@ describe("Rule-based plan generator", () => {
     expect(plan16.weeks).toHaveLength(16);
     expect(plan12.weeks[11].phase).toBe("taper");
     expect(plan16.weeks[15].phase).toBe("taper");
+  });
+
+  it("respects preferred rest day when scheduling allows it", () => {
+    const restFriendlyGoal: RaceGoal = {
+      ...goal,
+      longRunDay: "Monday",
+      daysPerWeek: 5,
+      preferredRestDay: "Friday",
+      planLengthWeeks: 4
+    };
+
+    const plan = generateTrainingPlan({ profile, goal: restFriendlyGoal });
+    for (const week of plan.weeks) {
+      const fridayWorkout = week.workouts.find((workout) => workout.day === "Friday");
+      expect(fridayWorkout).toBeUndefined();
+    }
   });
 
   it("refreshes plan with feedback and increments replan count", () => {

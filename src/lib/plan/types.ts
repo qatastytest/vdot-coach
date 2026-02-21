@@ -1,5 +1,12 @@
 export type PlanPhase = "base" | "build" | "specific" | "deload" | "taper";
-export type WorkoutType = "easy" | "recovery" | "threshold" | "interval" | "long_run" | "strides";
+export type WorkoutType =
+  | "easy"
+  | "recovery"
+  | "threshold"
+  | "interval"
+  | "long_run"
+  | "strides"
+  | "race";
 export type WorkoutStatus = "planned" | "done" | "skipped";
 export type PlanDurationWeeks = 4 | 8 | 12 | 16;
 

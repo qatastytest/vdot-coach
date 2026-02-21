@@ -30,11 +30,19 @@ export interface RunnerProfile {
 
 export interface RaceGoal {
   goalDistance: "5k" | "10k" | "half";
-  targetDate: string;
+  targetDate?: string;
   targetTimeSeconds?: number;
   ambition: "finish" | "realistic_pb" | "aggressive_pb";
   daysPerWeek: 3 | 4 | 5 | 6;
   longRunDay:
+    | "Monday"
+    | "Tuesday"
+    | "Wednesday"
+    | "Thursday"
+    | "Friday"
+    | "Saturday"
+    | "Sunday";
+  preferredRestDay?:
     | "Monday"
     | "Tuesday"
     | "Wednesday"
