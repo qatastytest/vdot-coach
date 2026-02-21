@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { getActiveProfileSummary, StoredProfileSummary } from "@/lib/storage/local";
 
 const LINKS = [
-  { href: "/", label: "Home" },
+  { href: "/dashboard", label: "Home" },
   { href: "/performance", label: "Add Performance" },
   { href: "/results", label: "VDOT Results" },
   { href: "/hr-setup", label: "HR Setup" },
@@ -22,6 +22,10 @@ export function AppNav(): React.JSX.Element {
   useEffect(() => {
     setActiveProfile(getActiveProfileSummary());
   }, [pathname]);
+
+  if (pathname === "/") {
+    return <header className="h-2" />;
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">

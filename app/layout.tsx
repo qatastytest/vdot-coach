@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppNav } from "@/components/navigation/AppNav";
+import { ProfileRouteGuard } from "@/components/auth/ProfileRouteGuard";
 
 export const metadata: Metadata = {
   title: "VDOT Coach",
@@ -18,7 +19,9 @@ export default function RootLayout({
       <body className="bg-cloud text-ink">
         <div className="min-h-screen">
           <AppNav />
-          <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">{children}</main>
+          <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
+            <ProfileRouteGuard>{children}</ProfileRouteGuard>
+          </main>
         </div>
       </body>
     </html>

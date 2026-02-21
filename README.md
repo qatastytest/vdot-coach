@@ -45,7 +45,8 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 
 ## Routes
 
-- `/` Home dashboard
+- `/` Profile login/select screen
+- `/dashboard` Home dashboard
 - `/performance` Add performance
 - `/results` VDOT results and coaching outputs
 - `/hr-setup` HR setup and zone preview
@@ -56,7 +57,8 @@ VDOT Coach is a Next.js + TypeScript MVP for runners that provides:
 
 ## Local Profile Selector (Netflix-style MVP)
 
-- Landing page now supports profile selection per device/browser.
+- Landing page (`/`) is a profile-login screen with track background.
+- You enter `/dashboard` only after selecting or creating a profile.
 - Each profile stores its own:
   - runner settings
   - baseline performance/VDOT snapshot

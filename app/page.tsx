@@ -1,5 +1,5 @@
-import { HomeLanding } from "@/components/home/HomeLanding";
+import { ProfileLoginScreen } from "@/components/auth/ProfileLoginScreen";
 
-export default function HomePage(): React.JSX.Element {
-  return <HomeLanding />;
+export default function LoginPage(): React.JSX.Element {
+  return <ProfileLoginScreen />;
 }
