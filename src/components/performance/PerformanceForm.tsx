@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   assessPerformanceConfidence,
   buildCoachingNotes,
@@ -84,7 +84,6 @@ function toConnectionPayload(connection: StravaConnection): Omit<StravaConnectio
 
 export function PerformanceForm(): React.JSX.Element {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [form, setForm] = useState<PerformanceFormValues>(DEFAULT_FORM);
   const [errors, setErrors] = useState<string[]>([]);
@@ -137,7 +136,7 @@ export function PerformanceForm(): React.JSX.Element {
 
     const clearQuery = (): void => {
       if (typeof window !== "undefined") {
-        window.history.replaceState({}, "", pathname);
+        window.history.replaceState({}, "", window.location.pathname);
       }
     };
 
@@ -220,7 +219,6 @@ export function PerformanceForm(): React.JSX.Element {
     oauthCode,
     oauthError,
     oauthState,
-    pathname,
     stravaConnection
   ]);
 
