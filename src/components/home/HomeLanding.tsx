@@ -219,6 +219,56 @@ export function HomeLanding(): React.JSX.Element {
         fiveKTime: active.appearance.fiveKTimeSeconds ? formatTime(active.appearance.fiveKTimeSeconds) : ""
       });
     }
+
+    if (storedProfile) {
+      setProfileForm({
+        age: storedProfile.age ?? "",
+        weeklyKmCurrent: storedProfile.weeklyKmCurrent,
+        weeklyKmMaxTolerated: storedProfile.weeklyKmMaxTolerated,
+        daysPerWeekAvailable: storedProfile.daysPerWeekAvailable,
+        preferredLongRunDay: storedProfile.preferredLongRunDay,
+        maxHr: storedProfile.maxHr ?? "",
+        restingHr: storedProfile.restingHr ?? "",
+        lthr: storedProfile.lthr ?? "",
+        experienceLevel: storedProfile.experienceLevel,
+        injuryNotes: storedProfile.injuryNotes ?? "",
+        preferredUnits: storedProfile.preferredUnits
+      });
+    }
+
+    if (storedBaseline) {
+      setPerformanceForm({
+        distanceMeters: storedBaseline.performance.distanceMeters,
+        time: formatTime(storedBaseline.performance.timeSeconds),
+        date: storedBaseline.performance.date,
+        eventType: storedBaseline.performance.eventType,
+        effortType: storedBaseline.performance.effortType,
+        surface: storedBaseline.performance.surface,
+        elevationGainM: storedBaseline.performance.elevationGainM ?? "",
+        temperatureC: storedBaseline.performance.temperatureC ?? "",
+        windKph: storedBaseline.performance.windKph ?? ""
+      });
+    }
+
+    if (storedGoal) {
+      setGoalForm({
+        goalDistance: storedGoal.goalDistance,
+        targetDate: storedGoal.targetDate ?? "",
+        targetTime: storedGoal.targetTimeSeconds ? formatTime(storedGoal.targetTimeSeconds) : "",
+        ambition: storedGoal.ambition,
+        daysPerWeek: storedGoal.daysPerWeek,
+        longRunDay: storedGoal.longRunDay,
+        preferredRestDay: storedGoal.preferredRestDay ?? "Friday",
+        trackAccess: storedGoal.trackAccess,
+        planLengthWeeks: storedGoal.planLengthWeeks
+      });
+    } else if (storedProfile) {
+      setGoalForm((previous) => ({
+        ...previous,
+        daysPerWeek: storedProfile.daysPerWeekAvailable,
+        longRunDay: storedProfile.preferredLongRunDay
+      }));
+    }
   }
 
   useEffect(() => {

@@ -109,8 +109,10 @@ export function PlanOverview(): React.JSX.Element {
       <section className="panel">
         <h2 className="h2">Training Plan Overview</h2>
         <p className="muted mt-1">
-          {plan.durationWeeks} weeks | Goal: {goal?.goalDistance ?? "N/A"} | Long run: {goal?.longRunDay ?? "N/A"}
+          {plan.durationWeeks} weeks | Goal: {goal?.goalDistance ?? "N/A"} | Long run: {goal?.longRunDay ?? "N/A"}{" "}
+          | Rest: {goal?.preferredRestDay ?? "Auto"}
         </p>
+        <p className="muted mt-1">Target date: {goal?.targetDate ?? "No race/date in future"}</p>
         <p className="muted mt-1">
           Refreshes: {plan.replanCount}
           {plan.refreshContext

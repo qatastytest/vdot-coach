@@ -72,3 +72,18 @@ export interface BaselineSnapshot {
   paces: TrainingPaces;
   coachingNotes: string[];
 }
+
+export interface SyncedActivity {
+  source: "strava";
+  externalId: string;
+  name: string;
+  type: string;
+  startDate: string;
+  startDateTime?: string;
+  distanceMeters: number;
+  movingTimeSec: number;
+  elapsedTimeSec?: number;
+  averageHr?: number;
+  maxHr?: number;
+  elevationGainM?: number;
+}
