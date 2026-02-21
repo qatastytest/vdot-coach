@@ -58,13 +58,14 @@ function rememberOAuthState(state: string): void {
   window.sessionStorage.setItem(OAUTH_STATE_KEY, state);
 }
 
-function consumeOAuthState(): string | null {
+function readOAuthState(): string | null {
   if (typeof window === "undefined") return null;
-  const saved = window.sessionStorage.getItem(OAUTH_STATE_KEY);
-  if (saved) {
-    window.sessionStorage.removeItem(OAUTH_STATE_KEY);
-  }
-  return saved;
+  return window.sessionStorage.getItem(OAUTH_STATE_KEY);
+}
+
+function clearOAuthState(): void {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(OAUTH_STATE_KEY);
 }
 
 function randomState(): string {
@@ -97,6 +98,7 @@ export function PerformanceForm(): React.JSX.Element {
   const [oauthBusy, setOauthBusy] = useState(false);
   const [oauthMessage, setOauthMessage] = useState<string | null>(null);
   const [oauthWarnings, setOauthWarnings] = useState<string[]>([]);
+  const [isStravaConnectionReady, setIsStravaConnectionReady] = useState(false);
   const activeProfileId = getActiveProfileId();
   const oauthCode = searchParams.get("code");
   const oauthState = searchParams.get("state");
@@ -120,6 +122,7 @@ export function PerformanceForm(): React.JSX.Element {
   );
 
   useEffect(() => {
+    setIsStravaConnectionReady(false);
     const savedConnection = getStoredStravaConnection();
     setStravaConnectionState(savedConnection);
     setStravaClientId(savedConnection?.clientId ?? "");
@@ -129,10 +132,12 @@ export function PerformanceForm(): React.JSX.Element {
     setSyncMessage(null);
     setOauthWarnings([]);
     setOauthMessage(null);
+    setIsStravaConnectionReady(true);
   }, [activeProfileId]);
 
   useEffect(() => {
     if (!oauthCode && !oauthError) return;
+    if (!isStravaConnectionReady) return;
 
     const clearQuery = (): void => {
       if (typeof window !== "undefined") {
@@ -142,23 +147,25 @@ export function PerformanceForm(): React.JSX.Element {
 
     if (oauthError) {
       setOauthWarnings([`Strava authorization failed: ${oauthError}`]);
+      clearOAuthState();
       clearQuery();
       return;
     }
     if (!oauthCode) return;
-
-    const expectedState = consumeOAuthState();
-    if (!expectedState || !oauthState || expectedState !== oauthState) {
-      setOauthWarnings(["Invalid OAuth state returned by Strava. Retry connection from this profile."]);
-      clearQuery();
-      return;
-    }
 
     if (!stravaConnection?.clientId || !stravaConnection?.clientSecret) {
       setOauthWarnings(["Missing Strava Client ID/Secret in this profile. Save connection then retry."]);
       clearQuery();
       return;
     }
+
+    const expectedState = readOAuthState();
+    if (!expectedState || !oauthState || expectedState !== oauthState) {
+      setOauthWarnings(["Invalid OAuth state returned by Strava. Retry connection from this profile."]);
+      clearQuery();
+      return;
+    }
+    clearOAuthState();
 
     let cancelled = false;
     setOauthBusy(true);
@@ -219,6 +226,7 @@ export function PerformanceForm(): React.JSX.Element {
     oauthCode,
     oauthError,
     oauthState,
+    isStravaConnectionReady,
     stravaConnection
   ]);
 
