@@ -24,14 +24,14 @@ export function AppNav(): React.JSX.Element {
   }, [pathname]);
 
   if (pathname === "/") {
-    return <header className="h-2" />;
+    return <></>;
   }
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-8">
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-ink">
+          <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-ink">
             VDOT Coach
           </Link>
           {activeProfile ? (

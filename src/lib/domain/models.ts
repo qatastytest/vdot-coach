@@ -8,6 +8,7 @@ import {
 } from "@/lib/core";
 
 export interface RunnerProfile {
+  age?: number;
   weeklyKmCurrent: number;
   weeklyKmMaxTolerated: number;
   daysPerWeekAvailable: 3 | 4 | 5 | 6;

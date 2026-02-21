@@ -26,6 +26,7 @@ export const performanceFormSchema = z.object({
 });
 
 export const runnerProfileSchema = z.object({
+  age: z.coerce.number().int().min(12).max(90).optional().or(z.literal("")),
   weeklyKmCurrent: z.coerce.number().min(10).max(250),
   weeklyKmMaxTolerated: z.coerce.number().min(10).max(300),
   daysPerWeekAvailable: z.coerce.number().int().min(3).max(6),

@@ -431,6 +431,67 @@ function calculateLoadAdjustmentFromFeedback(feedback: PlanFeedbackSummary): num
   return 1;
 }
 
+function shouldPreserveWorkout(workout: PlannedWorkout): boolean {
+  return (
+    workout.status !== "planned" ||
+    Boolean(
+      workout.completedAt ||
+        workout.actualSummary ||
+        workout.actualDistanceKm !== undefined ||
+        workout.actualRpe ||
+        workout.actualNotes
+    )
+  );
+}
+
+function findMatchingExistingWorkout(
+  workouts: PlannedWorkout[],
+  fallbackIndex: number,
+  generatedWorkout: PlannedWorkout
+): PlannedWorkout | undefined {
+  const byIndex = workouts[fallbackIndex];
+  if (byIndex && byIndex.day === generatedWorkout.day) {
+    return byIndex;
+  }
+
+  return workouts.find(
+    (workout) => workout.day === generatedWorkout.day && workout.type === generatedWorkout.type
+  );
+}
+
+function mergePlanWithCompletedHistory(
+  generatedPlan: TrainingPlanOutput,
+  existingPlan: TrainingPlanOutput
+): TrainingPlanOutput {
+  const weeks = generatedPlan.weeks.map((generatedWeek, weekIndex) => {
+    const existingWeek = existingPlan.weeks[weekIndex];
+    if (!existingWeek) return generatedWeek;
+
+    const workouts = generatedWeek.workouts.map((generatedWorkout, workoutIndex) => {
+      const existingWorkout = findMatchingExistingWorkout(
+        existingWeek.workouts,
+        workoutIndex,
+        generatedWorkout
+      );
+      if (!existingWorkout) return generatedWorkout;
+      if (shouldPreserveWorkout(existingWorkout)) {
+        return { ...existingWorkout };
+      }
+      return generatedWorkout;
+    });
+
+    return {
+      ...generatedWeek,
+      workouts
+    };
+  });
+
+  return {
+    ...generatedPlan,
+    weeks
+  };
+}
+
 export function generateTrainingPlan({
   profile,
   goal,
@@ -525,7 +586,7 @@ export function refreshTrainingPlanFromFeedback(params: {
   const feedback = countWorkoutFeedback(params.existingPlan);
   const loadAdjustmentFactor = calculateLoadAdjustmentFromFeedback(feedback);
 
-  return generateTrainingPlan({
+  const regenerated = generateTrainingPlan({
     profile: params.profile,
     goal: params.goal,
     paces: params.paces,
@@ -533,4 +594,6 @@ export function refreshTrainingPlanFromFeedback(params: {
     replanCount: params.existingPlan.replanCount + 1,
     refreshContext: feedback
   });
+
+  return mergePlanWithCompletedHistory(regenerated, params.existingPlan);
 }

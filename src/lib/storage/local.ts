@@ -10,7 +10,14 @@ const LEGACY_KEYS = {
 
 const STATE_KEY = "vdot-coach:profiles-state";
 
-export const PROFILE_ICON_PRESETS = ["🏃", "⚡", "🔥", "🌿", "🏔️", "🎯"] as const;
+export const PROFILE_ICON_PRESETS = [
+  "\u{1F3C3}",
+  "\u26A1",
+  "\u{1F525}",
+  "\u{1F33F}",
+  "\u{1F3D4}\uFE0F",
+  "\u{1F3AF}"
+] as const;
 export const PROFILE_COLOR_PRESETS = [
   "bg-teal-600",
   "bg-blue-600",

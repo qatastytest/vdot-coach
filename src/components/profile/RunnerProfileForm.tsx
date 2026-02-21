@@ -7,6 +7,7 @@ import { RunnerProfileFormValues, runnerProfileSchema } from "@/lib/validation/s
 import { InfoTip } from "@/components/ui/InfoTip";
 
 const DEFAULT_PROFILE: RunnerProfileFormValues = {
+  age: "",
   weeklyKmCurrent: 40,
   weeklyKmMaxTolerated: 55,
   daysPerWeekAvailable: 4,
@@ -28,6 +29,7 @@ export function RunnerProfileForm(): React.JSX.Element {
   const [form, setForm] = useState<RunnerProfileFormValues>(() => {
     if (!existing) return DEFAULT_PROFILE;
     return {
+      age: existing.age ?? "",
       weeklyKmCurrent: existing.weeklyKmCurrent,
       weeklyKmMaxTolerated: existing.weeklyKmMaxTolerated,
       daysPerWeekAvailable: existing.daysPerWeekAvailable,
@@ -53,6 +55,7 @@ export function RunnerProfileForm(): React.JSX.Element {
     }
 
     const normalized: RunnerProfile = {
+      age: normalizeNumber(parsed.data.age),
       weeklyKmCurrent: parsed.data.weeklyKmCurrent,
       weeklyKmMaxTolerated: parsed.data.weeklyKmMaxTolerated,
       daysPerWeekAvailable: parsed.data.daysPerWeekAvailable as 3 | 4 | 5 | 6,
@@ -77,6 +80,18 @@ export function RunnerProfileForm(): React.JSX.Element {
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+      <label>
+        <span className="label">Age (optional)</span>
+        <input
+          className="input"
+          type="number"
+          value={form.age}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, age: event.target.value === "" ? "" : Number(event.target.value) }))
+          }
+        />
+      </label>
+
       <label>
         <span className="label">Current Weekly km</span>
         <input

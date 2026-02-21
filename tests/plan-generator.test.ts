@@ -79,8 +79,10 @@ describe("Rule-based plan generator", () => {
   it("refreshes plan with feedback and increments replan count", () => {
     const original = generateTrainingPlan({ profile, goal });
     original.weeks[0].workouts[0].status = "skipped";
+    original.weeks[0].workouts[0].actualSummary = "Skipped due to poor sleep.";
     original.weeks[0].workouts[1].status = "skipped";
     original.weeks[0].workouts[2].status = "done";
+    original.weeks[0].workouts[2].actualSummary = "Completed with strong finish.";
     original.weeks[0].workouts[1].isEdited = true;
 
     const refreshed = refreshTrainingPlanFromFeedback({
@@ -93,6 +95,9 @@ describe("Rule-based plan generator", () => {
     expect(refreshed.replanCount).toBe(1);
     expect(refreshed.refreshContext?.skipped).toBe(2);
     expect(refreshed.refreshContext?.done).toBe(1);
-    expect(refreshed.weeks[0].workouts.every((workout) => workout.status === "planned")).toBe(true);
+    expect(refreshed.weeks[0].workouts[0].status).toBe("skipped");
+    expect(refreshed.weeks[0].workouts[0].actualSummary).toContain("poor sleep");
+    expect(refreshed.weeks[0].workouts[2].status).toBe("done");
+    expect(refreshed.weeks[0].workouts[2].actualSummary).toContain("strong finish");
   });
 });
