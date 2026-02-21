@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum EventType {
+  race
+  test
+}
+
+enum EffortType {
+  all_out
+  hard
+  controlled
+}
+
+enum SurfaceType {
+  track
+  road
+  trail
+  mixed
+}
+
+enum ExperienceLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+enum Units {
+  km
+  mile
+}
+
+enum GoalDistance {
+  k5
+  k10
+  half
+}
+
+enum AmbitionLevel {
+  finish
+  realistic_pb
+  aggressive_pb
+}
+
+enum PlanPhase {
+  base
+  build
+  specific
+  deload
+  taper
+}
+
+enum WorkoutType {
+  easy
+  recovery
+  threshold
+  interval
+  long_run
+  strides
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  runnerProfile RunnerProfile?
+  performances  Performance[]
+  hrZoneProfile HrZoneProfile?
+  raceGoals     RaceGoal[]
+  plans         TrainingPlan[]
+}
+
+model RunnerProfile {
+  id                    String          @id @default(cuid())
+  userId                String          @unique
+  weeklyKmCurrent       Float
+  weeklyKmMaxTolerated  Float
+  daysPerWeekAvailable  Int
+  preferredLongRunDay   String
+  maxHr                 Int?
+  restingHr             Int?
+  lthr                  Int?
+  experienceLevel       ExperienceLevel
+  injuryNotes           String?
+  preferredUnits        Units
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Performance {
+  id             String      @id @default(cuid())
+  userId         String
+  distanceMeters Float
+  timeSeconds    Int
+  date           DateTime
+  eventType      EventType
+  effortType     EffortType
+  surface        SurfaceType
+  elevationGainM Float?
+  temperatureC   Float?
+  windKph        Float?
+  createdAt      DateTime    @default(now())
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vdotResult     VdotResult?
+}
+
+model VdotResult {
+  id                   String               @id @default(cuid())
+  performanceId        String               @unique
+  vdot                 Float
+  confidenceLabel      String
+  confidenceReasons    Json
+  vo2Demand            Float
+  fractionSustained    Float
+  speedMPerMin         Float
+  createdAt            DateTime             @default(now())
+  performance          Performance          @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  zoneSnapshots        TrainingZoneSnapshot[]
+}
+
+model TrainingZoneSnapshot {
+  id                   String      @id @default(cuid())
+  userId               String
+  vdotResultId         String?
+  easyLowSecPerKm      Float
+  easyHighSecPerKm     Float
+  marathonSecPerKm     Float
+  thresholdLowSecPerKm Float
+  thresholdHighSecPerKm Float
+  intervalSecPerKm     Float
+  repetitionSecPerKm   Float
+  lapSplitsJson        Json
+  createdAt            DateTime    @default(now())
+  vdotResult           VdotResult? @relation(fields: [vdotResultId], references: [id], onDelete: SetNull)
+}
+
+model HrZoneProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  maxHr       Int?
+  restingHr   Int?
+  lthr        Int?
+  method      String
+  zonesJson   Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RaceGoal {
+  id               String        @id @default(cuid())
+  userId           String
+  goalDistance     GoalDistance
+  targetDate       DateTime
+  targetTimeSeconds Int?
+  ambition         AmbitionLevel
+  daysPerWeek      Int
+  longRunDay       String
+  trackAccess      Boolean
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainingPlans    TrainingPlan[]
+}
+
+model TrainingPlan {
+  id             String         @id @default(cuid())
+  userId         String
+  raceGoalId     String
+  durationWeeks  Int
+  startDate      DateTime
+  summary        String
+  generatedAt    DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  raceGoal       RaceGoal       @relation(fields: [raceGoalId], references: [id], onDelete: Cascade)
+  weeks          TrainingWeek[]
+}
+
+model TrainingWeek {
+  id             String       @id @default(cuid())
+  trainingPlanId String
+  weekNumber     Int
+  phase          PlanPhase
+  targetVolumeKm Float
+  notes          Json
+  workouts       Workout[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  trainingPlan   TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+}
+
+model Workout {
+  id             String      @id @default(cuid())
+  trainingWeekId String
+  dayOfWeek      String
+  type           WorkoutType
+  title          String
+  warmup         String
+  mainSet        String
+  cooldown       String
+  paceTarget     String
+  hrFallback     String
+  rpe            String
+  purpose        String
+  alternatives   Json
+  distanceKm     Float
+  isKey          Boolean
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  trainingWeek   TrainingWeek @relation(fields: [trainingWeekId], references: [id], onDelete: Cascade)
+}
